@@ -94,11 +94,13 @@ while True:
     fTemp = cTemp * 1.8 + 32
 
     if (GPIO.input(26) == False):
+        delay = 0.1
         incTemp += 1
         setting = True
         startTemp = fTemp
         desiredTemp = startTemp + incTemp
     else:
+        delay = 5.0
         setting = False
 
         if (desiredTemp == 0):
@@ -125,6 +127,7 @@ while True:
         currBlue = blue
 
     lcd.set_cursor(0, 0)
+    print('Current: {0:0.1f}F {1:0.1f}%\nDesired: {2:0.1f}F\n'.format(fTemp, humidity, desiredTemp))
     lcd.message('Current: {0:0.1f}F {1:0.1f}%\n\nDesired: {2:0.1f}F'.format(fTemp, humidity, desiredTemp))
 
-    time.sleep(0.3)
+    time.sleep(delay)
