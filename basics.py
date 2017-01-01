@@ -6,6 +6,13 @@ import Adafruit_CharLCD as LCD
 # https://github.com/ControlEverythingCommunity/SI7021
 import smbus
 
+import RPi.GPIO as GPIO
+ 
+GPIO.setmode(GPIO.BCM)
+
+# Button
+GPIO.setup(26, GPIO.IN)
+
 # Raspberry Pi configuration:
 lcd_rs = 27  # Change this to pin 21 on older revision Raspberry Pi's
 lcd_en = 22
@@ -27,42 +34,79 @@ lcd = LCD.Adafruit_RGBCharLCD(lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7,
 # Get I2C bus
 bus = smbus.SMBus(1)
 
-# SI7021 address, 0x40(64)
-#               0xF5(245)       Select Relative Humidity NO HOLD master mode
-bus.write_byte(0x40, 0xF5)
+setting = False
+desiredTemp = 0
+startTemp = 0
 
-time.sleep(0.3)
-
-# SI7021 address, 0x40(64)
-# Read data back, 2 bytes, Humidity MSB first
-data0 = bus.read_byte(0x40)
-data1 = bus.read_byte(0x40)
-
-# Convert the data
-humidity = ((data0 * 256 + data1) * 125 / 65536.0) - 6
-
-time.sleep(0.3)
-
-# SI7021 address, 0x40(64)
-#               0xF3(243)       Select temperature NO HOLD master mode
-bus.write_byte(0x40, 0xF3)
-
-time.sleep(0.3)
-
-# SI7021 address, 0x40(64)
-# Read data back, 2 bytes, Temperature MSB first
-data0 = bus.read_byte(0x40)
-data1 = bus.read_byte(0x40)
-
-# Convert the data
-cTemp = ((data0 * 256 + data1) * 175.72 / 65536.0) - 46.85
-fTemp = cTemp * 1.8 + 32
+colorTemps = [[0]*3 for i in range(10)]
+colorTemps[9] = [255, 0, 16]
+colorTemps[8] = [255, 50, 0]
+colorTemps[7] = [255, 110, 0]
+colorTemps[6] = [255, 170, 0]
+colorTemps[5] = [255, 230, 0]
+colorTemps[4] = [138, 255, 0]
+colorTemps[3] = [0, 255, 92]
+colorTemps[2] = [0, 212, 255]
+colorTemps[1] = [0, 116, 255]
+colorTemps[0] = [0, 18, 255]
 
 # Output data to screen
-lcd.set_color(1.0, 1.0, 1.0)
-lcd.clear()
-print "Relative Humidity is : %.2f %%" %humidity
-print "Temperature in Celsius is : %.2f C" %cTemp
-print "Temperature in Fahrenheit is : %.2f F" %fTemp
+while True:
+    if (setting == False):
+        incTemp = 0;
 
-lcd.message('  Humidity: {0:0.1f}%\n\n   Celsius: {1:0.1f}\nFahrenheit: {2:0.1f}'.format(humidity, cTemp, fTemp))
+    # SI7021 address, 0x40(64)
+    #               0xF5(245)       Select Relative Humidity NO HOLD master mode
+    bus.write_byte(0x40, 0xF5)
+
+    time.sleep(0.1)
+
+    # SI7021 address, 0x40(64)
+    # Read data back, 2 bytes, Humidity MSB first
+    data0 = bus.read_byte(0x40)
+    data1 = bus.read_byte(0x40)
+
+    time.sleep(0.1)
+
+    # Convert the data
+    humidity = ((data0 * 256 + data1) * 125 / 65536.0) - 6
+
+    # SI7021 address, 0x40(64)
+    #               0xF3(243)       Select temperature NO HOLD master mode
+    bus.write_byte(0x40, 0xF3)
+
+    time.sleep(0.1)
+
+    # SI7021 address, 0x40(64)
+    # Read data back, 2 bytes, Temperature MSB first
+    data0 = bus.read_byte(0x40)
+    data1 = bus.read_byte(0x40)
+
+    # Convert the data
+    cTemp = ((data0 * 256 + data1) * 175.72 / 65536.0) - 46.85
+    fTemp = cTemp * 1.8 + 32
+
+    if (GPIO.input(26) == False):
+        incTemp += 1
+        setting = True
+        startTemp = fTemp
+        desiredTemp = startTemp + incTemp
+    else:
+        setting = False
+
+        if (desiredTemp == 0):
+            desiredTemp = fTemp
+
+    if (startTemp and fTemp <= desiredTemp):
+	color = int((fTemp - startTemp) / (desiredTemp - fTemp) * 10)
+        red = colorTemps[color][0] / 255.0
+        green = colorTemps[color][1] / 255.0
+        blue = colorTemps[color][2] / 255.0
+        print('{0:0.2f} {1:0.2f} {2:0.2f}'.format(red, green, blue))
+        lcd.set_color(red, green, blue)
+    else:
+        lcd.set_color(1.0, 1.0, 1.0)
+    lcd.clear()
+    lcd.message('Current: {0:0.1f}F {1:0.1f}%\n\nDesired: {2:0.1f}F'.format(fTemp, humidity, desiredTemp))
+
+    time.sleep(0.1)
