@@ -29,7 +29,8 @@ lcd_rows    = 4
 
 # Initialize the LCD using the pins above.
 lcd = LCD.Adafruit_RGBCharLCD(lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7,
-                              lcd_columns, lcd_rows, lcd_red, lcd_green, lcd_blue)
+                              lcd_columns, lcd_rows, lcd_red, lcd_green, lcd_blue,
+                              enable_pwm=True)
 
 # Get I2C bus
 bus = smbus.SMBus(1)
@@ -49,6 +50,12 @@ colorTemps[3] = [0, 255, 92]
 colorTemps[2] = [0, 212, 255]
 colorTemps[1] = [0, 116, 255]
 colorTemps[0] = [0, 18, 255]
+
+defaultRed = currRed = 1.0
+defaultGreen = currGreen = 1.0
+defaultBlue = currBlue = 1.0
+
+lcd.set_color(defaultRed, defaultGreen, defaultBlue)
 
 # Output data to screen
 while True:
@@ -99,14 +106,25 @@ while True:
 
     if (startTemp and fTemp <= desiredTemp):
 	color = int((fTemp - startTemp) / (desiredTemp - fTemp) * 10)
+	if (color > 9):
+            color = 9
+        elif (color < 0):
+            color = 0
         red = colorTemps[color][0] / 255.0
         green = colorTemps[color][1] / 255.0
         blue = colorTemps[color][2] / 255.0
-        print('{0:0.2f} {1:0.2f} {2:0.2f}'.format(red, green, blue))
-        lcd.set_color(red, green, blue)
     else:
-        lcd.set_color(1.0, 1.0, 1.0)
-    lcd.clear()
+        red = defaultRed
+        green = defaultGreen
+        blue = defaultBlue
+
+    if (red != currRed or green != currGreen or blue != currBlue):
+        lcd.set_color(red, green, blue)
+        currRed = red
+        currGreen = green
+        currBlue = blue
+
+    lcd.set_cursor(0, 0)
     lcd.message('Current: {0:0.1f}F {1:0.1f}%\n\nDesired: {2:0.1f}F'.format(fTemp, humidity, desiredTemp))
 
-    time.sleep(0.1)
+    time.sleep(0.3)
