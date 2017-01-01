@@ -55,6 +55,9 @@ defaultRed = currRed = 1.0
 defaultGreen = currGreen = 1.0
 defaultBlue = currBlue = 1.0
 
+# Create degree character
+lcd.create_char(1, [28,20,28,0,0,0,0,0])
+
 lcd.set_color(defaultRed, defaultGreen, defaultBlue)
 
 # Output data to screen
@@ -106,8 +109,8 @@ while True:
         if (desiredTemp == 0):
             desiredTemp = fTemp
 
-    if (startTemp and fTemp <= desiredTemp):
-	color = int((fTemp - startTemp) / (desiredTemp - fTemp) * 10)
+    if (startTemp):
+	color = int((fTemp - startTemp) / (desiredTemp - startTemp) * 10)
 	if (color > 9):
             color = 9
         elif (color < 0):
@@ -127,7 +130,7 @@ while True:
         currBlue = blue
 
     lcd.set_cursor(0, 0)
-    print('Current: {0:0.1f}F {1:0.1f}%\nDesired: {2:0.1f}F\n'.format(fTemp, humidity, desiredTemp))
-    lcd.message('Current: {0:0.1f}F {1:0.1f}%\n\nDesired: {2:0.1f}F'.format(fTemp, humidity, desiredTemp))
+    print('Current: {0:0.1f} {1:0.1f}%\nDesired: {2:0.1f}\x01\n'.format(fTemp, humidity, desiredTemp))
+    lcd.message('Current: {0:0.1f}\x01 {1:0.1f}%\n\nDesired: {2:0.1f}\x01'.format(fTemp, humidity, desiredTemp))
 
     time.sleep(delay)
