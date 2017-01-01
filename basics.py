@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import time
+from datetime import datetime
 
 import Adafruit_CharLCD as LCD
 
@@ -69,23 +70,23 @@ while True:
     #               0xF5(245)       Select Relative Humidity NO HOLD master mode
     bus.write_byte(0x40, 0xF5)
 
-    time.sleep(0.1)
+    time.sleep(0.05)
 
     # SI7021 address, 0x40(64)
     # Read data back, 2 bytes, Humidity MSB first
     data0 = bus.read_byte(0x40)
     data1 = bus.read_byte(0x40)
 
-    time.sleep(0.1)
+    time.sleep(0.05)
 
     # Convert the data
-    humidity = ((data0 * 256 + data1) * 125 / 65536.0) - 6
+    inHumid = int(((data0 * 256 + data1) * 125 / 65536.0) - 6)
 
     # SI7021 address, 0x40(64)
     #               0xF3(243)       Select temperature NO HOLD master mode
     bus.write_byte(0x40, 0xF3)
 
-    time.sleep(0.1)
+    time.sleep(0.05)
 
     # SI7021 address, 0x40(64)
     # Read data back, 2 bytes, Temperature MSB first
@@ -94,23 +95,27 @@ while True:
 
     # Convert the data
     cTemp = ((data0 * 256 + data1) * 175.72 / 65536.0) - 46.85
-    fTemp = cTemp * 1.8 + 32
+    inTemp = int(cTemp * 1.8 + 32)
+
+    # Get from Home Assistant
+    outTemp = int(0.0)
+    outHumid = int(0.0)
 
     if (GPIO.input(26) == False):
         delay = 0.1
         incTemp += 1
         setting = True
-        startTemp = fTemp
+        startTemp = inTemp
         desiredTemp = startTemp + incTemp
     else:
         delay = 5.0
         setting = False
 
         if (desiredTemp == 0):
-            desiredTemp = fTemp
+            desiredTemp = inTemp
 
     if (startTemp):
-	color = int((fTemp - startTemp) / (desiredTemp - startTemp) * 10)
+	color = int((inTemp - startTemp) / (desiredTemp - startTemp) * 10)
 	if (color > 9):
             color = 9
         elif (color < 0):
@@ -130,7 +135,7 @@ while True:
         currBlue = blue
 
     lcd.set_cursor(0, 0)
-    print('Current: {0:0.1f} {1:0.1f}%\nDesired: {2:0.1f}\x01\n'.format(fTemp, humidity, desiredTemp))
-    lcd.message('Current: {0:0.1f}\x01 {1:0.1f}%\n\nDesired: {2:0.1f}\x01'.format(fTemp, humidity, desiredTemp))
+    dt = datetime.now().strftime('%H:%M     %a %b %d')
+    lcd.message(dt + '\n    Out: {0:3}\x01 {1:3}%\n     In: {2:3}\x01 {3:3}%\nDesired: {4:3}\x01'.format(outTemp, outHumid, inTemp, inHumid, desiredTemp))
 
     time.sleep(delay)
