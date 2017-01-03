@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import math
 import time
 import os
 import sys
@@ -18,6 +19,11 @@ GPIO.setmode(GPIO.BCM)
 
 # Button
 GPIO.setup(26, GPIO.IN)
+
+desiredTemp = 45
+lowTemp = 32
+highTemp = 80
+prevRGB = (1, 1, 1)
 
 # Raspberry Pi configuration:
 lcd_rs = 27  # Change this to pin 21 on older revision Raspberry Pi's
@@ -44,18 +50,11 @@ bus = smbus.SMBus(1)
 watching = False
 watchStr = ''
 switch = 'OFF'
-desiredTemp = 55
 updateSecs = 30
 loop = 0
 
-defaultRed = 0.1
-defaultGreen = 0.1
-defaultBlue = 1.0
-
 # Create degree character
 lcd.create_char(1, [28,20,28,0,0,0,0,0])
-
-lcd.set_color(defaultRed, defaultGreen, defaultBlue)
 
 def convertCtoF(celcius):
   return celcius * 1.8 + 32
@@ -63,6 +62,21 @@ def convertCtoF(celcius):
 def getCPUtemperature():
   res = os.popen('vcgencmd measure_temp').readline()
   return int(convertCtoF(float(res.replace("temp=", "").replace("'C\n",""))))
+
+# http://stackoverflow.com/a/20792531
+def rgbTemp(minT, maxT, temp):
+  if (temp < minT):
+    minT = temp
+  elif (temp > maxT):
+    maxT = temp
+
+  minT = float(minT)
+  maxT = float(maxT)
+  ratio = 2 * (temp - minT) / (maxT - minT)
+  b = int(max(0, 255*(1 - ratio)))
+  r = int(max(0, 255*(ratio - 1)))
+  g = 255 - b - r
+  return r, g, b
 
 # Output data to screen
 while True:
@@ -119,6 +133,11 @@ while True:
       loop = 0
     else:
       loop += 1
+
+    rgb = rgbTemp(lowTemp, highTemp, temp)
+    if (rgb[0] != prevRGB[0] or rgb[1] != prevRGB[1] or rgb[2] != prevRGB[2]):
+      lcd.set_color(*rgb)
+      prevRGB = rgb
 
     lcd.set_cursor(0, 0)
     lcd.message(datetime.now().strftime('%H:%M --- %a %b %d') + '\n\n     In: {0:3}\x01 {1:2}%\n'.format(temp, humid) + watchStr)
