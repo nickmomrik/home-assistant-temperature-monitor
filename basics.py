@@ -1,17 +1,13 @@
 #!/usr/bin/python
 import time
+import os
+import sys
 from datetime import datetime
 
 import Adafruit_CharLCD as LCD
 
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
-
-broker = '192.168.2.149'
-state_topic = 'garage/pi/'
-client = mqtt.Client("ha-client")
-client.connect(broker)
-client.loop_start()
 
 # https://github.com/ControlEverythingCommunity/SI7021
 import smbus
@@ -48,7 +44,7 @@ bus = smbus.SMBus(1)
 watching = False
 watchStr = ''
 switch = 'OFF'
-desiredTemp = 45
+desiredTemp = 55
 updateSecs = 30
 loop = 0
 
@@ -60,6 +56,13 @@ defaultBlue = 1.0
 lcd.create_char(1, [28,20,28,0,0,0,0,0])
 
 lcd.set_color(defaultRed, defaultGreen, defaultBlue)
+
+def convertCtoF(celcius):
+  return celcius * 1.8 + 32
+
+def getCPUtemperature():
+  res = os.popen('vcgencmd measure_temp').readline()
+  return int(convertCtoF(float(res.replace("temp=", "").replace("'C\n",""))))
 
 # Output data to screen
 while True:
@@ -77,7 +80,7 @@ while True:
     time.sleep(0.05)
 
     # Convert the data
-    inHumid = int(((data0 * 256 + data1) * 125 / 65536.0) - 6)
+    humid = int(((data0 * 256 + data1) * 125 / 65536.0) - 6)
 
     # SI7021 address, 0x40(64)
     #               0xF3(243)       Select temperature NO HOLD master mode
@@ -91,29 +94,26 @@ while True:
     data1 = bus.read_byte(0x40)
 
     # Convert the data
-    cTemp = ((data0 * 256 + data1) * 175.72 / 65536.0) - 46.85
-    inTemp = int(cTemp * 1.8 + 32)
-
-    # Get from Home Assistant
-    outTemp = int(0.0)
-    outHumid = int(0.0)
+    temp = int(convertCtoF(((data0 * 256 + data1) * 175.72 / 65536.0) - 46.85))
 
     if (watching):
-      if (inTemp >= desiredTemp or GPIO.input(26) == False):
+      if (temp >= desiredTemp or GPIO.input(26) == False):
         watching = False
         watchStr = ' '*20
         switch = 'OFF'
         loop = 0
     elif (GPIO.input(26) == False):
       watching = True
-      watchStr = '@ ' + datetime.now().strftime('%H:%M') + ': {0:3}\x01 {1:2}%'.format(inTemp, inHumid)
+      watchStr = '@ ' + datetime.now().strftime('%H:%M') + ': {0:3}\x01 {1:2}%'.format(temp, humid)
       switch = 'ON'
       loop = 0
 
     if (0 == loop):
-      client.publish(state_topic + 'humidity', inHumid)
-      client.publish(state_topic + 'temperature', inTemp)
-      client.publish(state_topic + 'temp-watch/set', switch)
+      msgs = [('garage/pi/humidity', humid, 0, True),
+              ('garage/pi/temperature', temp, 0, True),
+              ('garage/pi/temp-watch', switch, 0, True),
+              ('pis/derby/cpu-temp', getCPUtemperature(), 0, True)]
+      publish.multiple(msgs, hostname='apple.local')
 
     if (loop >= updateSecs):
       loop = 0
@@ -121,6 +121,6 @@ while True:
       loop += 1
 
     lcd.set_cursor(0, 0)
-    lcd.message(datetime.now().strftime('%H:%M --- %a %b %d') + '\n    Out: {0:3}\x01 {1:2}%\n     In: {2:3}\x01 {3:2}%\n'.format(outTemp, outHumid, inTemp, inHumid) + watchStr)
+    lcd.message(datetime.now().strftime('%H:%M --- %a %b %d') + '\n\n     In: {0:3}\x01 {1:2}%\n'.format(temp, humid) + watchStr)
 
     time.sleep(2)
