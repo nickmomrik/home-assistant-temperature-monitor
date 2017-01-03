@@ -4,6 +4,15 @@ from datetime import datetime
 
 import Adafruit_CharLCD as LCD
 
+import paho.mqtt.client as mqtt
+import paho.mqtt.publish as publish
+
+broker = '192.168.2.149'
+state_topic = 'garage/pi/'
+client = mqtt.Client("ha-client")
+client.connect(broker)
+client.loop_start()
+
 # https://github.com/ControlEverythingCommunity/SI7021
 import smbus
 
@@ -36,25 +45,16 @@ lcd = LCD.Adafruit_RGBCharLCD(lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7,
 # Get I2C bus
 bus = smbus.SMBus(1)
 
-setting = False
-desiredTemp = 0
-startTemp = 0
+watching = False
+watchStr = ''
+switch = 'OFF'
+desiredTemp = 45
+updateSecs = 30
+loop = 0
 
-colorTemps = [[0]*3 for i in range(10)]
-colorTemps[9] = [255, 0, 16]
-colorTemps[8] = [255, 50, 0]
-colorTemps[7] = [255, 110, 0]
-colorTemps[6] = [255, 170, 0]
-colorTemps[5] = [255, 230, 0]
-colorTemps[4] = [138, 255, 0]
-colorTemps[3] = [0, 255, 92]
-colorTemps[2] = [0, 212, 255]
-colorTemps[1] = [0, 116, 255]
-colorTemps[0] = [0, 18, 255]
-
-defaultRed = currRed = 1.0
-defaultGreen = currGreen = 1.0
-defaultBlue = currBlue = 1.0
+defaultRed = 0.1
+defaultGreen = 0.1
+defaultBlue = 1.0
 
 # Create degree character
 lcd.create_char(1, [28,20,28,0,0,0,0,0])
@@ -63,9 +63,6 @@ lcd.set_color(defaultRed, defaultGreen, defaultBlue)
 
 # Output data to screen
 while True:
-    if (setting == False):
-        incTemp = 0;
-
     # SI7021 address, 0x40(64)
     #               0xF5(245)       Select Relative Humidity NO HOLD master mode
     bus.write_byte(0x40, 0xF5)
@@ -101,41 +98,29 @@ while True:
     outTemp = int(0.0)
     outHumid = int(0.0)
 
-    if (GPIO.input(26) == False):
-        delay = 0.1
-        incTemp += 1
-        setting = True
-        startTemp = inTemp
-        desiredTemp = startTemp + incTemp
+    if (watching):
+      if (inTemp >= desiredTemp or GPIO.input(26) == False):
+        watching = False
+        watchStr = ' '*20
+        switch = 'OFF'
+        loop = 0
+    elif (GPIO.input(26) == False):
+      watching = True
+      watchStr = '@ ' + datetime.now().strftime('%H:%M') + ': {0:3}\x01 {1:2}%'.format(inTemp, inHumid)
+      switch = 'ON'
+      loop = 0
+
+    if (0 == loop):
+      client.publish(state_topic + 'humidity', inHumid)
+      client.publish(state_topic + 'temperature', inTemp)
+      client.publish(state_topic + 'temp-watch/set', switch)
+
+    if (loop >= updateSecs):
+      loop = 0
     else:
-        delay = 5.0
-        setting = False
-
-        if (desiredTemp == 0):
-            desiredTemp = inTemp
-
-    if (startTemp):
-	color = int((inTemp - startTemp) / (desiredTemp - startTemp) * 10)
-	if (color > 9):
-            color = 9
-        elif (color < 0):
-            color = 0
-        red = colorTemps[color][0] / 255.0
-        green = colorTemps[color][1] / 255.0
-        blue = colorTemps[color][2] / 255.0
-    else:
-        red = defaultRed
-        green = defaultGreen
-        blue = defaultBlue
-
-    if (red != currRed or green != currGreen or blue != currBlue):
-        lcd.set_color(red, green, blue)
-        currRed = red
-        currGreen = green
-        currBlue = blue
+      loop += 1
 
     lcd.set_cursor(0, 0)
-    dt = datetime.now().strftime('%H:%M     %a %b %d')
-    lcd.message(dt + '\n    Out: {0:3}\x01 {1:3}%\n     In: {2:3}\x01 {3:3}%\nDesired: {4:3}\x01'.format(outTemp, outHumid, inTemp, inHumid, desiredTemp))
+    lcd.message(datetime.now().strftime('%H:%M --- %a %b %d') + '\n    Out: {0:3}\x01 {1:2}%\n     In: {2:3}\x01 {3:2}%\n'.format(outTemp, outHumid, inTemp, inHumid) + watchStr)
 
-    time.sleep(delay)
+    time.sleep(2)
