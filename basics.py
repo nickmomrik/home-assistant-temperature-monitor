@@ -25,6 +25,7 @@ GPIO.setup(buttonPin, GPIO.IN)
 # LED
 ledPin = 21
 GPIO.setup(ledPin, GPIO.OUT)
+GPIO.output(ledPin, GPIO.LOW)
 
 desiredTemp = 45
 lowTemp = 32
