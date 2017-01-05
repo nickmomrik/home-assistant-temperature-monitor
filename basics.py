@@ -3,6 +3,7 @@ import math
 import time
 import os
 import sys
+import socket
 from datetime import datetime
 
 import Adafruit_CharLCD as LCD
@@ -133,7 +134,7 @@ while True:
       msgs = [('garage/pi/humidity', humid, 0, True),
               ('garage/pi/temperature', temp, 0, True),
               ('garage/pi/temp-watch', switch, 0, True),
-              ('pis/derby/cpu-temp', getCPUtemperature(), 0, True)]
+              ('pis/' + socket.gethostname() + '/cpu-temp', getCPUtemperature(), 0, True)]
       publish.multiple(msgs, hostname='apple.local')
 
     if (loop >= updateSecs):
