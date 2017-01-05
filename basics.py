@@ -18,7 +18,12 @@ import RPi.GPIO as GPIO
 GPIO.setmode(GPIO.BCM)
 
 # Button
-GPIO.setup(26, GPIO.IN)
+buttonPin = 26
+GPIO.setup(buttonPin, GPIO.IN)
+
+# LED
+ledPin = 21
+GPIO.setup(ledPin, GPIO.OUT)
 
 desiredTemp = 45
 lowTemp = 32
@@ -111,16 +116,18 @@ while True:
     temp = int(convertCtoF(((data0 * 256 + data1) * 175.72 / 65536.0) - 46.85))
 
     if (watching):
-      if (temp >= desiredTemp or GPIO.input(26) == False):
+      if (temp >= desiredTemp or GPIO.input(buttonPin) == False):
         watching = False
         watchStr = ' '*20
         switch = 'OFF'
         loop = 0
-    elif (GPIO.input(26) == False):
+        GPIO.output(ledPin, GPIO.LOW)
+    elif (GPIO.input(buttonPin) == False):
       watching = True
       watchStr = '@ ' + datetime.now().strftime('%H:%M') + ': {0:3}\x01 {1:2}%'.format(temp, humid)
       switch = 'ON'
       loop = 0
+      GPIO.output(ledPin, GPIO.HIGH)
 
     if (0 == loop):
       msgs = [('garage/pi/humidity', humid, 0, True),
