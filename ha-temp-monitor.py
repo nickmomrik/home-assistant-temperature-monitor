@@ -62,6 +62,11 @@ switch     = 'OFF'
 updateSecs = 30
 loop       = 0
 
+# MQTT client
+client = mqtt.Client("ha-client")
+client.connect('192.168.2.149')
+client.loop_start()
+
 # Create degree character
 lcd.create_char(1, [28,20,28,0,0,0,0,0])
 
@@ -130,11 +135,10 @@ while True:
     GPIO.output(ledPin, GPIO.HIGH)
 
   if (0 == loop):
-    msgs = [('garage/pi/humidity', humid, 0, True),
-            ('garage/pi/temperature', temp, 0, True),
-            ('garage/pi/temp-monitor', switch, 0, True),
-            ('pis/' + socket.gethostname() + '/cpu-temp', getCPUtemperature(), 0, True)]
-    publish.multiple(msgs, hostname='apple.local')
+    client.publish('garage/pi/humidity', humid)
+    client.publish('garage/pi/temperature', temp)
+    client.publish('garage/pi/temp-monitor', switch)
+    client.publish('pis/' + socket.gethostname() + '/cpu-temp', getCPUtemperature())
 
   if (loop >= updateSecs):
     loop = 0
@@ -147,6 +151,6 @@ while True:
     prevRGB = rgb
 
   lcd.set_cursor(0, 0)
-  lcd.message(datetime.now().strftime('%H:%M --- %a %b %d') + '\n\n     In: {0:3}\x01 {1:2}%\n'.format(temp, humid) + monitorStr)
+  lcd.message(datetime.now().strftime('%H:%M --- %a %b %d') + '\n\nInside: {0:3}\x01 {1:2}%\n'.format(temp, humid) + monitorStr)
 
   time.sleep(2)
