@@ -54,8 +54,8 @@ lcd = LCD.Adafruit_RGBCharLCD(lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7,
 # Get I2C bus
 bus = smbus.SMBus(1)
 
-watching = False
-watchStr = ''
+monitoring = False
+monitorStr = ''
 switch = 'OFF'
 updateSecs = 30
 loop = 0
@@ -117,16 +117,16 @@ while True:
     # Convert the data
     temp = int(convertCtoF(((data0 * 256 + data1) * 175.72 / 65536.0) - 46.85))
 
-    if (watching):
+    if (monitoring):
       if (temp >= desiredTemp or GPIO.input(buttonPin) == False):
-        watching = False
-        watchStr = ' '*20
+        monitoring = False
+        monitorStr = ' '*20
         switch = 'OFF'
         loop = 0
         GPIO.output(ledPin, GPIO.LOW)
     elif (GPIO.input(buttonPin) == False):
-      watching = True
-      watchStr = '@ ' + datetime.now().strftime('%H:%M') + ': {0:3}\x01 {1:2}%'.format(temp, humid)
+      monitoring = True
+      monitorStr = '@ ' + datetime.now().strftime('%H:%M') + ': {0:3}\x01 {1:2}%'.format(temp, humid)
       switch = 'ON'
       loop = 0
       GPIO.output(ledPin, GPIO.HIGH)
@@ -134,7 +134,7 @@ while True:
     if (0 == loop):
       msgs = [('garage/pi/humidity', humid, 0, True),
               ('garage/pi/temperature', temp, 0, True),
-              ('garage/pi/temp-watch', switch, 0, True),
+              ('garage/pi/temp-monitor', switch, 0, True),
               ('pis/' + socket.gethostname() + '/cpu-temp', getCPUtemperature(), 0, True)]
       publish.multiple(msgs, hostname='apple.local')
 
@@ -149,6 +149,6 @@ while True:
       prevRGB = rgb
 
     lcd.set_cursor(0, 0)
-    lcd.message(datetime.now().strftime('%H:%M --- %a %b %d') + '\n\n     In: {0:3}\x01 {1:2}%\n'.format(temp, humid) + watchStr)
+    lcd.message(datetime.now().strftime('%H:%M --- %a %b %d') + '\n\n     In: {0:3}\x01 {1:2}%\n'.format(temp, humid) + monitorStr)
 
     time.sleep(2)
