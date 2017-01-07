@@ -19,7 +19,7 @@ import RPi.GPIO as GPIO
 GPIO.setmode(GPIO.BCM)
 
 # Button
-buttonPin = 26
+buttonPin = 19
 GPIO.setup(buttonPin, GPIO.IN)
 
 # LED
