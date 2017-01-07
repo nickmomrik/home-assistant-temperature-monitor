@@ -37,6 +37,7 @@ import time
 import os
 import sys
 import socket
+import psutil
 from datetime import datetime
 import Adafruit_CharLCD as LCD
 import paho.mqtt.client as mqtt
@@ -139,6 +140,8 @@ while True:
     client.publish('garage/pi/temperature', temp)
     client.publish('garage/pi/temp-monitor', switch)
     client.publish('pis/' + socket.gethostname() + '/cpu-temp', getCPUtemperature())
+    client.publish('pis/' + socket.gethostname() + '/cpu-use', psutil.cpu_percent())
+    client.publish('pis/' + socket.gethostname() + '/ram-use', psutil.virtual_memory().percent)
 
   if (loop >= updateSecs):
     loop = 0
