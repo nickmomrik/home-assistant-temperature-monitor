@@ -29,6 +29,9 @@ desired_temp = 45
 high_temp = 80
 low_temp  = 32
 
+# How often to update Home Assistant (in seconds)
+frequency = 60
+
 # END CONFIG
 ############
 
@@ -59,11 +62,10 @@ lcd = LCD.Adafruit_RGBCharLCD(lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7,
 # Some defaults
 prev_rgb     = (1, 1, 1)
 monitoring   = False
-monitor_def  = 'Monitor: HOLD BUTTON'
+monitor_def  = 'Monitor: OFF'
 monitor_str  = monitor_def
 switch       = 'OFF'
-update_loops = 30
-loop         = 0
+last_update  = time.time() - frequency
 out_temp     = 0
 out_humid    = 0
 bus_delay    = 0.025
@@ -136,26 +138,40 @@ def get_home_assistant_state(entity_id, old_value):
 
   return ret
 
+def reset_monitor():
+  global monitoring, monitor_str, switch, last_update, update_lcd, led_pin
+  monitoring = False
+  monitor_str = monitor_def
+  switch = 'OFF'
+  last_update = 0
+  GPIO.output(led_pin, GPIO.LOW)
+  update_lcd = True
 
 while True:
+  update_lcd = False
+
   humid = read_humidity()
   temp  = read_temperature()
 
-  if (monitoring):
-    if (temp >= desired_temp or GPIO.input(button_pin) == False):
-      monitoring = False
-      monitor_str = monitor_def
-      switch = 'OFF'
-      loop = 0
-      GPIO.output(led_pin, GPIO.LOW)
-  elif (GPIO.input(button_pin) == False):
-    monitoring = True
-    monitor_str = '@ ' + datetime.now().strftime('%H:%M') + ': {0:3}\x01 {1:2}%'.format(temp, humid)
-    switch = 'ON'
-    loop = 0
-    GPIO.output(led_pin, GPIO.HIGH)
+  if (GPIO.input(button_pin) == False):
+    if (monitoring):
+      reset_monitor()
+    else:
+      monitoring = True
+      monitor_str = '@ ' + datetime.now().strftime('%H:%M') + ': {0:3}\x01 {1:2}%'.format(temp, humid)
+      switch = 'ON'
+      last_update = 0
+      GPIO.output(led_pin, GPIO.HIGH)
+      update_lcd = True
 
-  if (0 == loop):
+  now = time.time();
+  if (now > last_update + frequency):
+    last_update = now
+    update_lcd = True
+
+    if (monitoring and temp >= desired_temp):
+      reset_monitor()
+
     client.publish('garage/pi/humidity', humid)
     client.publish('garage/pi/temperature', temp)
     client.publish('garage/pi/temp-monitor', switch)
@@ -166,17 +182,13 @@ while True:
     out_temp  = get_home_assistant_state('sensor.dark_sky_temperature', out_temp)
     out_humid = get_home_assistant_state('sensor.dark_sky_humidity', out_humid)
 
-  if (loop >= update_loops):
-    loop = 0
-  else:
-    loop += 1
+  if (update_lcd):
+    rgb = rgb_temp(low_temp, high_temp, temp)
+    if (rgb[0] != prev_rgb[0] or rgb[1] != prev_rgb[1] or rgb[2] != prev_rgb[2]):
+      lcd.set_color(*rgb)
+      prev_rgb = rgb
 
-  rgb = rgb_temp(low_temp, high_temp, temp)
-  if (rgb[0] != prev_rgb[0] or rgb[1] != prev_rgb[1] or rgb[2] != prev_rgb[2]):
-    lcd.set_color(*rgb)
-    prev_rgb = rgb
+    lcd.set_cursor(0, 0)
+    lcd.message(datetime.now().strftime('%H:%M --- %a %b %d') + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format(out_temp, out_humid, temp, humid) + monitor_str.ljust(20))
 
-  lcd.set_cursor(0, 0)
-  lcd.message(datetime.now().strftime('%H:%M --- %a %b %d') + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format(out_temp, out_humid, temp, humid) + monitor_str.ljust(20))
-
-  time.sleep(2)
+  time.sleep(1)
