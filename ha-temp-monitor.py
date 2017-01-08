@@ -32,6 +32,19 @@ low_temp  = 32
 # How often to update Home Assistant (in seconds)
 frequency = 60
 
+# Home Assistant
+ha_ip                  = '192.168.2.149'
+ha_humid_topic         = 'garage/pi/humidity'
+ha_temp_topic          = 'garage/pi/temperature'
+ha_monitor_topic       = 'garage/pi/temp-monitor'
+import socket
+hostname               = socket.gethostname()
+ha_cpu_temp_topic      = 'pis/' + hostname + '/cpu-temp'
+ha_cpu_use_topic       = 'pis/' + hostname + '/cpu-use'
+ha_ram_use_topic       = 'pis/' + hostname + '/ram-use'
+ha_out_temp_entity_id  = 'sensor.dark_sky_temperature'
+ha_out_humid_entity_id = 'sensor.dark_sky_humidity'
+
 # END CONFIG
 ############
 
@@ -39,7 +52,6 @@ import math
 import time
 import os
 import sys
-import socket
 import psutil
 from datetime import datetime
 import Adafruit_CharLCD as LCD
@@ -71,7 +83,6 @@ out_humid    = 0
 bus_delay    = 0.025
 
 # Home Assistant
-ha_ip = '192.168.2.149'
 url = 'http://' + ha_ip + ':8123/api/states/'
 with open('ha-password.txt', 'r') as f:
   password = f.readline().strip()
@@ -172,15 +183,15 @@ while True:
     if (monitoring and temp >= desired_temp):
       reset_monitor()
 
-    client.publish('garage/pi/humidity', humid)
-    client.publish('garage/pi/temperature', temp)
-    client.publish('garage/pi/temp-monitor', switch)
-    client.publish('pis/' + socket.gethostname() + '/cpu-temp', get_cpu_temperature())
-    client.publish('pis/' + socket.gethostname() + '/cpu-use', psutil.cpu_percent())
-    client.publish('pis/' + socket.gethostname() + '/ram-use', psutil.virtual_memory().percent)
+    client.publish(ha_humid_topic, humid)
+    client.publish(ha_temp_topic, temp)
+    client.publish(ha_monitor_topic, switch)
+    client.publish(ha_cpu_temp_topic, get_cpu_temperature())
+    client.publish(ha_cpu_use_topic, psutil.cpu_percent())
+    client.publish(ha_ram_use_topic, psutil.virtual_memory().percent)
 
-    out_temp  = get_home_assistant_state('sensor.dark_sky_temperature', out_temp)
-    out_humid = get_home_assistant_state('sensor.dark_sky_humidity', out_humid)
+    out_temp  = get_home_assistant_state(ha_out_temp_entity_id, out_temp)
+    out_humid = get_home_assistant_state(ha_out_humid_entity_id, out_humid)
 
   if (update_lcd):
     rgb = rgb_temp(low_temp, high_temp, temp)
