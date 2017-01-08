@@ -38,7 +38,6 @@ import os
 import sys
 import socket
 import psutil
-import json
 from datetime import datetime
 import Adafruit_CharLCD as LCD
 import paho.mqtt.client as mqtt
@@ -127,9 +126,13 @@ def read_temperature():
 
   return int(convert_c_to_f((data0 * 256 + data1) * 175.72 / 65536.0 - 46.85))
 
-def get_home_assistant_state(entity_id):
+def get_home_assistant_state(entity_id, old_value):
   response = get(url + entity_id, headers=headers)
-  return int(round(float(json.loads(response.text)['state'])))
+  if (200 == response.status_code):
+    ret = int(round(float(response.json()['state'])))
+  else:
+    ret = old_value
+  return ret
 
 
 while True:
@@ -158,8 +161,8 @@ while True:
     client.publish('pis/' + socket.gethostname() + '/cpu-use', psutil.cpu_percent())
     client.publish('pis/' + socket.gethostname() + '/ram-use', psutil.virtual_memory().percent)
 
-    out_temp  = get_home_assistant_state('sensor.dark_sky_temperature')
-    out_humid = get_home_assistant_state('sensor.dark_sky_humidity')
+    out_temp  = get_home_assistant_state('sensor.dark_sky_temperature', out_temp)
+    out_humid = get_home_assistant_state('sensor.dark_sky_humidity', out_humid)
 
   if (loop >= update_loops):
     loop = 0
