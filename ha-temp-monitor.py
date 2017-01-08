@@ -145,7 +145,7 @@ while True:
       GPIO.output(led_pin, GPIO.LOW)
   elif (GPIO.input(button_pin) == False):
     monitoring = True
-    monitor_str = '@ ' + datetime.now().strftime('%H:%M') + ': {0:3}\x01 {1:2}%'.format(temp, humid).ljust(20)
+    monitor_str = '@ ' + datetime.now().strftime('%H:%M') + ': {0:3}\x01 {1:2}%'.format(temp, humid)
     switch = 'ON'
     loop = 0
     GPIO.output(led_pin, GPIO.HIGH)
@@ -172,6 +172,6 @@ while True:
     prev_rgb = rgb
 
   lcd.set_cursor(0, 0)
-  lcd.message(datetime.now().strftime('%H:%M --- %a %b %d') + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format(out_temp, out_humid, temp, humid) + monitor_str)
+  lcd.message(datetime.now().strftime('%H:%M --- %a %b %d') + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format(out_temp, out_humid, temp, humid) + monitor_str.ljust(20))
 
   time.sleep(2)
