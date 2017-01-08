@@ -38,10 +38,11 @@ ha_humid_topic         = 'garage/pi/humidity'
 ha_temp_topic          = 'garage/pi/temperature'
 ha_monitor_topic       = 'garage/pi/temp-monitor'
 import socket
-hostname               = socket.gethostname()
-ha_cpu_temp_topic      = 'pis/' + hostname + '/cpu-temp'
-ha_cpu_use_topic       = 'pis/' + hostname + '/cpu-use'
-ha_ram_use_topic       = 'pis/' + hostname + '/ram-use'
+topic_prefix           = 'pis/' +  socket.gethostname() + '/'
+ha_cpu_temp_topic      = topic_prefix + 'cpu-temp'
+ha_cpu_use_topic       = topic_prefix + 'cpu-use'
+ha_ram_use_topic       = topic_prefix + 'ram-use'
+ha_uptime_topic        = topic_prefix + 'uptime'
 ha_out_temp_entity_id  = 'sensor.dark_sky_temperature'
 ha_out_humid_entity_id = 'sensor.dark_sky_humidity'
 
@@ -54,10 +55,11 @@ import os
 import sys
 import psutil
 from datetime import datetime
+from datetime import timedelta
 import Adafruit_CharLCD as LCD
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
-from requests import get
+import requests
 import smbus # https://github.com/ControlEverythingCommunity/SI7021
 import RPi.GPIO as GPIO
 
@@ -140,12 +142,15 @@ def read_temperature():
   return int(convert_c_to_f((data0 * 256 + data1) * 175.72 / 65536.0 - 46.85))
 
 def get_home_assistant_state(entity_id, old_value):
-  response = get(url + entity_id, headers=headers)
   ret = old_value
-  if (200 == response.status_code):
-    value = response.json()['state']
-    if (value):
-      ret = int(round(float(value)))
+  try:
+    response = requests.get(url + entity_id, headers=headers)
+    if (200 == response.status_code):
+      value = response.json()['state']
+      if (value):
+        ret = int(round(float(value)))
+  except requests.exceptions.RequestException as e:
+    print e
 
   return ret
 
@@ -157,6 +162,13 @@ def reset_monitor():
   last_update = 0
   GPIO.output(led_pin, GPIO.LOW)
   update_lcd = True
+
+def get_uptime():
+  with open('/proc/uptime', 'r') as f:
+    uptime_seconds = float(f.readline().split()[0])
+
+    return str(timedelta(seconds = uptime_seconds))
+
 
 while True:
   update_lcd = False
@@ -189,6 +201,7 @@ while True:
     client.publish(ha_cpu_temp_topic, get_cpu_temperature())
     client.publish(ha_cpu_use_topic, psutil.cpu_percent())
     client.publish(ha_ram_use_topic, psutil.virtual_memory().percent)
+    client.publish(ha_uptime_topic, get_uptime())
 
     out_temp  = get_home_assistant_state(ha_out_temp_entity_id, out_temp)
     out_humid = get_home_assistant_state(ha_out_humid_entity_id, out_humid)
