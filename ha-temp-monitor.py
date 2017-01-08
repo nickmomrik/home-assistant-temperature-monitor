@@ -60,7 +60,7 @@ lcd = LCD.Adafruit_RGBCharLCD(lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7,
 # Some defaults
 prev_rgb     = (1, 1, 1)
 monitoring   = False
-monitor_def  = 'Monitor: hold button'
+monitor_def  = 'Monitor: HOLD BUTTON'
 monitor_str  = monitor_def
 switch       = 'OFF'
 update_loops = 30
