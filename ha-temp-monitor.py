@@ -128,10 +128,12 @@ def read_temperature():
 
 def get_home_assistant_state(entity_id, old_value):
   response = get(url + entity_id, headers=headers)
+  ret = old_value
   if (200 == response.status_code):
-    ret = int(round(float(response.json()['state'])))
-  else:
-    ret = old_value
+    value = response.json()['state']
+    if (value):
+      ret = int(round(float(value)))
+
   return ret
 
 
