@@ -147,8 +147,12 @@ def get_home_assistant_state(entity_id, old_value):
     response = requests.get(url + entity_id, headers=headers)
     if (200 == response.status_code):
       value = response.json()['state']
-      if (value):
-        ret = int(round(float(value)))
+      if (value and 'unknown' != value):
+        try:
+          converted = int(round(float(value)))
+          ret = converted
+        except ValueError as e:
+          print e, response.json()
   except requests.exceptions.RequestException as e:
     print e
 
