@@ -215,6 +215,6 @@ while True:
 			prev_rgb = rgb
 
 		lcd.set_cursor( 0, 0 )
-		lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ) + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, temp, humid ) + monitor_str.ljust( 20 ) )
+		lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ) + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, temp, humid ) + monitor_str.ljust( lcd_columns ) )
 
 	time.sleep( 1 )
