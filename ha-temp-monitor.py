@@ -70,8 +70,8 @@ GPIO.setup( led_pin, GPIO.OUT )
 GPIO.output( led_pin, GPIO.LOW )
 bus = smbus.SMBus( 1 )
 lcd = LCD.Adafruit_RGBCharLCD( lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7,
-							    lcd_columns, lcd_rows, lcd_red, lcd_green, lcd_blue,
-							     enable_pwm = True )
+								lcd_columns, lcd_rows, lcd_red, lcd_green, lcd_blue,
+							    enable_pwm = True )
 
 # Some defaults
 prev_rgb     = ( 1, 1, 1 )
@@ -88,8 +88,8 @@ bus_delay    = 0.025
 url = 'http://' + ha_ip + ':8123/api/states/'
 with open( 'ha-password.txt', 'r' ) as f:
 	password = f.readline().strip()
-headers  = {'x-ha-access': password,
-					 'content-type': 'application/json'}
+headers = {'x-ha-access': password,
+			'content-type': 'application/json'}
 client = mqtt.Client( "ha-client" )
 client.connect( ha_ip )
 client.loop_start()
@@ -178,7 +178,7 @@ while True:
 	humid = read_humidity()
 	temp  = read_temperature()
 
-	if ( GPIO.input( button_pin ) == False):
+	if ( GPIO.input( button_pin ) == False ):
 		if ( monitoring ):
 			reset_monitor()
 		else:
