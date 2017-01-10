@@ -10,3 +10,5 @@ Hardware used:
 * [16mm Illuminated Pushbutton](https://www.adafruit.com/products/1477)
 * [Panel Mount 10K potentiometer](https://www.adafruit.com/products/562)
 * [Potentiometer Knob](https://www.adafruit.com/products/2048)
+
+![Home Assistant Temperature Monitor Fritzing](./home-assistant-temperature-monitor-fritzing.png?raw=true "Home Assistant Temperature Monitor Fritzing")
