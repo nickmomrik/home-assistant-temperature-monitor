@@ -213,7 +213,7 @@ while True:
   if (update_lcd):
     rgb = rgb_temp(low_temp, high_temp, temp)
     if (rgb[0] != prev_rgb[0] or rgb[1] != prev_rgb[1] or rgb[2] != prev_rgb[2]):
-      lcd.set_color(*rgb)
+      lcd.set_color(rgb[0] / 255.0, rgb[1] / 255.0, rgb[2] / 255.0)
       prev_rgb = rgb
 
     lcd.set_cursor(0, 0)
