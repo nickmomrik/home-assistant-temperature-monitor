@@ -183,7 +183,7 @@ while True:
 			reset_monitor()
 		else:
 			monitoring  = True
-			monitor_str = '@ ' + datetime.now().strftime('%H:%M') + ': {0:3}\x01 {1:2}%'.format(temp, humid)
+			monitor_str = '@ ' + datetime.now().strftime( '%H:%M' ) + ': {0:3}\x01 {1:2}%'.format( temp, humid )
 			switch      = 'ON'
 			last_update = 0
 			update_lcd  = True
