@@ -121,27 +121,23 @@ def rgb_temp( min_temp, max_temp, temp ):
 
 	return r, g, b
 
-def read_humidity():
+def get_si7021_data( mode ):
 	# 0x40(64) - SI7021 address
-	# 0xF5(245) - Relative Humidity NO HOLD master mode
-	bus.write_byte( 0x40, 0xF5 )
+	bus.write_byte( 0x40, mode )
 	time.sleep( bus_delay )
 	data0 = bus.read_byte( 0x40 )
 	data1 = bus.read_byte( 0x40 )
 	time.sleep( bus_delay )
 
-	return int( ( data0 * 256 + data1 ) * 125 / 65536.0 - 6 )
+	return data0 * 256 + data1
+
+def read_humidity():
+	# 0xF5(245) - Relative Humidity NO HOLD master mode
+	return int( ( get_si7021_data( 0xF5 ) ) * 125 / 65536.0 - 6 )
 
 def read_temperature():
-	# 0x40(64) - SI7021 address
 	# 0xF3(243) - Temperature NO HOLD master mode
-	bus.write_byte( 0x40, 0xF3 )
-	time.sleep( bus_delay )
-	data0 = bus.read_byte( 0x40 )
-	data1 = bus.read_byte( 0x40 )
-	time.sleep( bus_delay )
-
-	return int( convert_c_to_f( ( data0 * 256 + data1 ) * 175.72 / 65536.0 - 46.85 ) )
+	return int( convert_c_to_f( ( get_si7021_data( 0xF3 ) ) * 175.72 / 65536.0 - 46.85 ) )
 
 def get_home_assistant_state( entity_id, old_value ):
 	ret = old_value
