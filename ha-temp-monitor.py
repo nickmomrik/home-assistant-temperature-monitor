@@ -23,7 +23,7 @@ lcd_columns = 20
 lcd_rows    = 4
 
 # Acceptable temperature when monitor will stop
-desired_temp = 45
+desired_temp = 50
 
 # High/low used for LCD color calculations
 high_temp = 80
