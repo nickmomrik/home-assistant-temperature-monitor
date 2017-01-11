@@ -86,7 +86,7 @@ bus_delay    = 0.025
 
 # Home Assistant
 url = 'http://' + ha_ip + ':8123/api/states/'
-with open( 'ha-password.txt', 'r' ) as f:
+with open( '/home/pi/home-assistant-temperature-monitor/ha-password.txt', 'r' ) as f:
 	password = f.readline().strip()
 headers = {'x-ha-access': password,
 			'content-type': 'application/json'}
