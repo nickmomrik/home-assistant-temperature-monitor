@@ -39,10 +39,6 @@ ha_temp_topic          = 'garage/pi/temperature'
 ha_monitor_topic       = 'garage/pi/temp-monitor'
 import socket
 topic_prefix           = 'pis/' + socket.gethostname() + '/'
-ha_cpu_temp_topic      = topic_prefix + 'cpu-temp'
-ha_cpu_use_topic       = topic_prefix + 'cpu-use'
-ha_ram_use_topic       = topic_prefix + 'ram-use'
-ha_uptime_topic        = topic_prefix + 'uptime'
 ha_out_temp_entity_id  = 'sensor.dark_sky_temperature'
 ha_out_humid_entity_id = 'sensor.dark_sky_humidity'
 
@@ -53,7 +49,6 @@ import math
 import time
 import os
 import sys
-import psutil
 from datetime import datetime
 from datetime import timedelta
 import Adafruit_CharLCD as LCD
@@ -99,11 +94,6 @@ lcd.create_char( 1, [28,20,28,0,0,0,0,0] )
 
 def convert_c_to_f( celcius ):
 	return celcius * 1.8 + 32
-
-def get_cpu_temperature():
-	res = os.popen( 'vcgencmd measure_temp' ).readline()
-
-	return int( convert_c_to_f( float( res.replace( "temp=", "" ).replace( "'C\n", "" ) ) ) )
 
 # http://stackoverflow.com/a/20792531
 def rgb_temp( min_temp, max_temp, temp ):
@@ -165,12 +155,6 @@ def reset_monitor():
 	update_lcd  = True
 	GPIO.output( led_pin, GPIO.LOW )
 
-def get_uptime():
-	with open( '/proc/uptime', 'r' ) as f:
-		uptime_seconds = float( f.readline().split()[0] )
-
-		return str( timedelta( seconds = uptime_seconds ) )
-
 
 while True:
 	update_lcd = False
@@ -200,10 +184,6 @@ while True:
 		client.publish( ha_humid_topic, humid )
 		client.publish( ha_temp_topic, temp )
 		client.publish( ha_monitor_topic, switch )
-		client.publish( ha_cpu_temp_topic, get_cpu_temperature() )
-		client.publish( ha_cpu_use_topic, psutil.cpu_percent() )
-		client.publish( ha_ram_use_topic, psutil.virtual_memory().percent )
-		client.publish( ha_uptime_topic, get_uptime() )
 
 		out_temp  = get_home_assistant_state( ha_out_temp_entity_id, out_temp )
 		out_humid = get_home_assistant_state( ha_out_humid_entity_id, out_humid )
