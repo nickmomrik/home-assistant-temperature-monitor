@@ -28,7 +28,7 @@ Hardware used:
 homeassistant:
   # You should have a bunch of other
   # settings here in your config
-  customize: !include customize.yaml
+  customize:
     sensor.garage_temperature:
       icon: mdi:thermometer
     sensor.garage_humidity:
