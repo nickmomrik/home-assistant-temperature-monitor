@@ -1,52 +1,10 @@
 #!/usr/bin/python
 
-########
-# CONFIG
-
-# Where are the button and status LED connected?
-button_pin = 19
-led_pin    = 21
-
-# LCD configuration
-lcd_rs = 27
-lcd_en = 22
-lcd_d4 = 25
-lcd_d5 = 24
-lcd_d6 = 23
-lcd_d7 = 18
-
-lcd_red   = 4
-lcd_green = 17
-lcd_blue  = 7
-
-lcd_columns = 20
-lcd_rows    = 4
-
-# Acceptable temperature when monitor will stop
-desired_temp = 50
-
-# High/low used for LCD color calculations
-high_temp = 80
-low_temp  = 32
-
-# How often to update Home Assistant (in seconds)
-frequency = 60
-
-# Home Assistant
-ha_ip                  = '192.168.2.149'
-ha_humid_topic         = 'garage/pi/humidity'
-ha_temp_topic          = 'garage/pi/temperature'
-ha_monitor_topic       = 'garage/pi/temp-monitor'
-ha_out_temp_entity_id  = 'sensor.dark_sky_temperature'
-ha_out_humid_entity_id = 'sensor.dark_sky_humidity'
-
-# END CONFIG
-############
-
 import math
 import time
 import os
 import sys
+import json
 from datetime import datetime
 from datetime import timedelta
 import Adafruit_CharLCD as LCD
@@ -57,14 +15,19 @@ import smbus
 import RPi.GPIO as GPIO
 
 # Setup
+with open( "/home/pi/home-assistant-temperature-monitor/config.json" ) as json_file:
+    j = json.load( json_file )
+
 GPIO.setmode( GPIO.BCM )
-GPIO.setup( button_pin, GPIO.IN )
-GPIO.setup( led_pin, GPIO.OUT )
-GPIO.output( led_pin, GPIO.LOW )
+GPIO.setup( j['button_pin'], GPIO.IN )
+GPIO.setup( j['led_pin'], GPIO.OUT )
+GPIO.output( j['led_pin'], GPIO.LOW )
 bus = smbus.SMBus( 1 )
-lcd = LCD.Adafruit_RGBCharLCD( lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7,
-								lcd_columns, lcd_rows, lcd_red, lcd_green, lcd_blue,
-							    enable_pwm = True )
+lcd = LCD.Adafruit_RGBCharLCD( j['lcd_rs_pin'], j['lcd_en_pin'],
+								j['lcd_d4_pin'], j['lcd_d5_pin'], j['lcd_d6_pin'], j['lcd_d7_pin'],
+								j['lcd_columns'], j['lcd_rows'],
+								j['lcd_red_pin'], j['lcd_green_pin'], j['lcd_blue_pin'],
+								enable_pwm = True )
 
 # Some defaults
 prev_rgb     = ( 1, 1, 1 )
@@ -72,19 +35,17 @@ monitoring   = False
 monitor_def  = 'Monitor:  OFF'
 monitor_str  = monitor_def
 switch       = 'OFF'
-last_update  = time.time() - frequency
+last_update  = 0
 out_temp     = 0
 out_humid    = 0
 bus_delay    = 0.025
 
 # Home Assistant
-url = 'http://' + ha_ip + ':8123/api/states/'
-with open( '/home/pi/home-assistant-temperature-monitor/ha-password.txt', 'r' ) as f:
-	password = f.readline().strip()
-headers = {'x-ha-access': password,
+url = j['ha_url'] + '/api/states/'
+headers = {'x-ha-access': j['ha_password'],
 			'content-type': 'application/json'}
 client = mqtt.Client( "ha-client" )
-client.connect( ha_ip )
+client.connect( j['ha_ip'] )
 client.loop_start()
 
 # Create degree character
@@ -96,9 +57,9 @@ def convert_c_to_f( celcius ):
 # http://stackoverflow.com/a/20792531
 def rgb_temp( min_temp, max_temp, temp ):
 	if ( temp < min_temp ):
-		minT = temp
+		min_temp = temp
 	elif ( temp > max_temp ):
-		maxT = temp
+		max_temp = temp
 
 	min_temp = float( min_temp )
 	max_temp = float( max_temp )
@@ -151,7 +112,7 @@ def reset_monitor():
 	switch      = 'OFF'
 	last_update = 0
 	update_lcd  = True
-	GPIO.output( led_pin, GPIO.LOW )
+	GPIO.output( j['led_pin'], GPIO.LOW )
 
 
 while True:
@@ -160,7 +121,7 @@ while True:
 	humid = int( read_humidity() )
 	temp  = int( read_temperature() )
 
-	if ( GPIO.input( button_pin ) == False ):
+	if ( GPIO.input( j['button_pin'] ) == False ):
 		if ( monitoring ):
 			reset_monitor()
 		else:
@@ -169,30 +130,30 @@ while True:
 			switch      = 'ON'
 			last_update = 0
 			update_lcd  = True
-			GPIO.output( led_pin, GPIO.HIGH )
+			GPIO.output( j['led_pin'], GPIO.HIGH )
 
 	now = time.time();
-	if ( now > last_update + frequency ):
+	if ( now > last_update + j['update_frequency'] ):
 		last_update = now
 		update_lcd  = True
 
-		if ( monitoring and temp >= desired_temp ):
+		if ( monitoring and temp >= j['desired_temp_f'] ):
 			reset_monitor()
 
-		client.publish( ha_humid_topic, humid )
-		client.publish( ha_temp_topic, temp )
-		client.publish( ha_monitor_topic, switch )
+		client.publish( j['ha_humid_topic'], humid )
+		client.publish( j['ha_temp_topic'], temp )
+		client.publish( j['ha_monitor_topic'], switch )
 
-		out_temp  = get_home_assistant_state( ha_out_temp_entity_id, out_temp )
-		out_humid = get_home_assistant_state( ha_out_humid_entity_id, out_humid )
+		out_temp  = get_home_assistant_state( j['ha_out_temp_entity_id'], out_temp )
+		out_humid = get_home_assistant_state( j['ha_out_humid_entity_id'], out_humid )
 
 	if ( update_lcd ):
-		rgb = rgb_temp( low_temp, high_temp, temp )
+		rgb = rgb_temp( j['low_temp_f'], j['high_temp_f'], temp )
 		if ( rgb[0] != prev_rgb[0] or rgb[1] != prev_rgb[1] or rgb[2] != prev_rgb[2] ):
 			lcd.set_color( rgb[0] / 255.0, rgb[1] / 255.0, rgb[2] / 255.0 )
 			prev_rgb = rgb
 
 		lcd.set_cursor( 0, 0 )
-		lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ) + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, temp, humid ) + monitor_str.ljust( lcd_columns ) )
+		lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ) + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, temp, humid ) + monitor_str.ljust( j['lcd_columns'] ) )
 
 	time.sleep( 1 )

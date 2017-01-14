@@ -1,0 +1,33 @@
+{
+	"button_pin": 19,
+	"led_pin": 21,
+
+	"lcd_rs_pin": 27,
+	"lcd_en_pin": 22,
+	"lcd_d4_pin": 25,
+	"lcd_d5_pin": 24,
+	"lcd_d6_pin": 23,
+	"lcd_d7_pin": 18,
+	"lcd_red_pin": 4,
+	"lcd_green_pin": 17,
+	"lcd_blue_pin": 7,
+
+	"lcd_columns": 20,
+	"lcd_rows": 4,
+
+	"desired_temp_f": 50,
+	"high_temp_f": 80,
+	"low_temp_f": 32,
+
+	"update_frequency": 60,
+
+	"ha_password": "123456",
+	"ha_ip": "192.168.1.5",
+	"ha_url": "http://192.168.1.5:8123",
+
+	"ha_humid_topic": "garage/pi/humidity",
+	"ha_temp_topic": "garage/pi/temperature",
+	"ha_monitor_topic": "garage/pi/temp-monitor",
+	"ha_out_temp_entity_id": "sensor.dark_sky_temperature",
+	"ha_out_humid_entity_id": "sensor.dark_sky_humidity"
+}

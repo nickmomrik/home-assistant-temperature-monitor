@@ -19,8 +19,9 @@ Hardware used:
 * Install [paho-mqtt](https://pypi.python.org/pypi/paho-mqtt)
 * Install [Adafruit_Python_CharLCD](https://github.com/adafruit/Adafruit_Python_CharLCD)
 * Clone this repo to `/home/pi`
-* Create a file named `ha-password.txt` in the `home-assistant-temperature-monitor` directory
-* Configure the settings at the top of the `ha-temp-monitor.py` file
+* `cd home-assistant-temperature-monitor`
+* `cp config-sample.json config.json`
+* Edit `config.json` to set all of the options
 * Get [Pushbullet](https://home-assistant.io/components/notify.pushbullet/) and [Dark Sky](https://home-assistant.io/components/sensor.darksky/) working in Home Assistant
 * Configure Home Assistant. Here's an example of some `configuration.yaml` settings:
 
