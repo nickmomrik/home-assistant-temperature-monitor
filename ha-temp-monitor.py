@@ -123,11 +123,11 @@ def get_si7021_data( mode ):
 
 def read_humidity():
 	# 0xF5(245) - Relative Humidity NO HOLD master mode
-	return int( ( get_si7021_data( 0xF5 ) ) * 125 / 65536.0 - 6 )
+	return get_si7021_data( 0xF5 ) * 125 / 65536.0 - 6
 
 def read_temperature():
 	# 0xF3(243) - Temperature NO HOLD master mode
-	return int( convert_c_to_f( get_si7021_data( 0xF3 ) * 175.72 / 65536.0 - 46.85 ) )
+	return convert_c_to_f( get_si7021_data( 0xF3 ) * 175.72 / 65536.0 - 46.85 )
 
 def get_home_assistant_state( entity_id, old_value ):
 	ret = old_value
@@ -159,8 +159,8 @@ def reset_monitor():
 while True:
 	update_lcd = False
 
-	humid = read_humidity()
-	temp  = read_temperature()
+	humid = int( read_humidity() )
+	temp  = int( read_temperature() )
 
 	if ( GPIO.input( button_pin ) == False ):
 		if ( monitoring ):
