@@ -21,7 +21,7 @@ Hardware used:
 * Clone this repo to `/home/pi`
 * `cd home-assistant-temperature-monitor`
 * `cp config-sample.json config.json`
-* Edit `config.json` to set all of the options
+* Edit `config.json` to set all of the options. Change `HOSTNAME` to whatever you want to use as a name and make sure your HA config also matches.
 * Get [Pushbullet](https://home-assistant.io/components/notify.pushbullet/) and [Dark Sky](https://home-assistant.io/components/sensor.darksky/) working in Home Assistant
 * Configure Home Assistant. Here's an example of some `configuration.yaml` settings:
 
