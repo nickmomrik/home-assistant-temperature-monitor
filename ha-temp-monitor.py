@@ -37,8 +37,6 @@ ha_ip                  = '192.168.2.149'
 ha_humid_topic         = 'garage/pi/humidity'
 ha_temp_topic          = 'garage/pi/temperature'
 ha_monitor_topic       = 'garage/pi/temp-monitor'
-import socket
-topic_prefix           = 'pis/' + socket.gethostname() + '/'
 ha_out_temp_entity_id  = 'sensor.dark_sky_temperature'
 ha_out_humid_entity_id = 'sensor.dark_sky_humidity'
 
