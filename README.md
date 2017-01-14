@@ -1,5 +1,5 @@
 # Home Assistant - Temperature & Humidity Sensors
-My goal with this project was to create a device I could leave in the garage, which would push temperature and humidity data to Home Assistant. I also wanted to be able to enable a "monitor" mode when I turn on the heat in the garage so the system would alert me when a certain temperature was reached.
+My goal with this project was to create a device I could leave in the garage, which would push temperature and humidity data to Home Assistant. I also wanted to be able to enable a "monitor" mode when I turn on the heat in the garage so the system would alert me when a certain temperature was reached. See the [working version on my blog](https://nickmomrik.com/2017/01/13/garage-temperature-sensor-monitor/).
 
 Hardware used:
 * [Raspberry Pi Zero](https://www.adafruit.com/products/2885)
