@@ -55,7 +55,7 @@ import Adafruit_CharLCD as LCD
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
 import requests
-import smbus # https://github.com/ControlEverythingCommunity/SI7021
+import smbus
 import RPi.GPIO as GPIO
 
 # Setup
@@ -127,7 +127,7 @@ def read_humidity():
 
 def read_temperature():
 	# 0xF3(243) - Temperature NO HOLD master mode
-	return int( convert_c_to_f( ( get_si7021_data( 0xF3 ) ) * 175.72 / 65536.0 - 46.85 ) )
+	return int( convert_c_to_f( get_si7021_data( 0xF3 ) * 175.72 / 65536.0 - 46.85 ) )
 
 def get_home_assistant_state( entity_id, old_value ):
 	ret = old_value
