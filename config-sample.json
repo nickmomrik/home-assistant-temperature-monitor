@@ -15,7 +15,6 @@
 	"lcd_columns": 20,
 	"lcd_rows": 4,
 
-	"desired_temp_f": 50,
 	"high_temp_f": 80,
 	"low_temp_f": 32,
 
@@ -27,7 +26,8 @@
 
 	"ha_humid_topic": "garage/pi/humidity",
 	"ha_temp_topic": "garage/pi/temperature",
-	"ha_monitor_topic": "garage/pi/temp-monitor",
+	"ha_monitor_entity_id": "switch.garage_temp_monitor",
+	"ha_desired_entity_id": "input_slider.garage_temp_desired",
 	"ha_out_temp_entity_id": "sensor.dark_sky_temperature",
-	"ha_out_humid_entity_id": "sensor.dark_sky_humidity"
+	"ha_out_humid_entity_id": "sensor.dark_sky_humidity",
 }

@@ -31,11 +31,9 @@ lcd = LCD.Adafruit_RGBCharLCD( j['lcd_rs_pin'], j['lcd_en_pin'],
 
 # Some defaults
 prev_rgb     = ( 1, 1, 1 )
-monitoring   = False
-monitor_def  = 'Monitor:  OFF'
-monitor_str  = monitor_def
-switch       = 'OFF'
+switch       = 'off'
 last_update  = 0
+desired_temp = 0
 out_temp     = 0
 out_humid    = 0
 bus_delay    = 0.025
@@ -88,32 +86,63 @@ def read_temperature():
 	# 0xF3(243) - Temperature NO HOLD master mode
 	return convert_c_to_f( get_si7021_data( 0xF3 ) * 175.72 / 65536.0 - 46.85 )
 
-def get_home_assistant_state( entity_id, old_value ):
+def get_home_assistant_value( entity_id, old_value ):
 	ret = old_value
+
+	state = get_home_assistant_state( entity_id )
+	value = state['state']
+	if ( value and 'unknown' != value ):
+		try:
+			ret = value
+		except ValueError as e:
+			print e, response.json()
+
+	return ret
+
+def get_home_assistant_state( entity_id ):
+	ret = None
 	try:
 		response = requests.get( url + entity_id, headers = headers )
-		if ( 200 == response.status_code ):
-			value = response.json()['state']
-			if ( value and 'unknown' != value ):
-				try:
-					converted = int( round( float( value ) ) )
-					ret = converted
-				except ValueError as e:
-					print e, response.json()
+		if ( 200 == response.status_code and 'unknown' != response.json()['state'] ):
+			ret = response.json()
 	except requests.exceptions.RequestException as e:
 		print e
 
 	return ret
 
-def reset_monitor():
-	global monitoring, monitor_str, switch, last_update, update_lcd, led_pin
-	monitoring  = False
-	monitor_str = monitor_def
-	switch      = 'OFF'
-	last_update = 0
-	update_lcd  = True
-	GPIO.output( j['led_pin'], GPIO.LOW )
+def set_home_assistant_switch( entity_id, switch ):
+	if ( 'on' != switch ):
+		switch = 'off'
 
+	new_state = {
+		'state': switch,
+		'attributes': {
+			'icon': '',
+			'friendly_name': ''
+		}
+	}
+
+	# Otherwise Home Assistant resets these values!
+	state = get_home_assistant_state( entity_id )
+	if ( state['attributes']['icon'] ):
+		new_state['attributes']['icon'] = state['attributes']['icon']
+	if ( state['attributes']['friendly_name'] ):
+		new_state['attributes']['friendly_name'] = state['attributes']['friendly_name']
+
+	try:
+		data = json.dumps( new_state )
+		requests.post( url + entity_id, data, headers = headers )
+	except requests.exceptions.RequestException as e:
+		print e
+
+def switch_change( switch, push ):
+	if ( 'on' == switch ):
+		GPIO.output( j['led_pin'], GPIO.HIGH )
+	else:
+		GPIO.output( j['led_pin'], GPIO.LOW )
+
+	if ( True == push ):
+		set_home_assistant_switch( j['ha_monitor_entity_id'], switch )
 
 while True:
 	update_lcd = False
@@ -121,39 +150,35 @@ while True:
 	humid = int( read_humidity() )
 	temp  = int( read_temperature() )
 
-	if ( GPIO.input( j['button_pin'] ) == False ):
-		if ( monitoring ):
-			reset_monitor()
+	if ( False == GPIO.input( j['button_pin'] ) ):
+		if ( 'on' == switch ):
+			switch = 'off'
 		else:
-			monitoring  = True
-			monitor_str = '@ ' + datetime.now().strftime( '%H:%M' ) + ': {0:3}\x01 {1:2}%'.format( temp, humid )
-			switch      = 'ON'
-			last_update = 0
-			update_lcd  = True
-			GPIO.output( j['led_pin'], GPIO.HIGH )
+			switch = 'on'
+
+		switch_change( switch, True )
+		last_update = 0
 
 	now = time.time();
 	if ( now > last_update + j['update_frequency'] ):
 		last_update = now
-		update_lcd  = True
-
-		if ( monitoring and temp >= j['desired_temp_f'] ):
-			reset_monitor()
 
 		client.publish( j['ha_humid_topic'], humid )
 		client.publish( j['ha_temp_topic'], temp )
-		client.publish( j['ha_monitor_topic'], switch )
 
-		out_temp  = get_home_assistant_state( j['ha_out_temp_entity_id'], out_temp )
-		out_humid = get_home_assistant_state( j['ha_out_humid_entity_id'], out_humid )
+		switch       = get_home_assistant_value( j['ha_monitor_entity_id'], switch )
+		desired_temp = int( round( float( get_home_assistant_value( j['ha_desired_entity_id'], desired_temp ) ) ) )
+		out_temp     = int( round( float( get_home_assistant_value( j['ha_out_temp_entity_id'], out_temp ) ) ) )
+		out_humid    = int( round( float( get_home_assistant_value( j['ha_out_humid_entity_id'], out_humid ) ) ) )
 
-	if ( update_lcd ):
+		switch_change( switch, False )
+
 		rgb = rgb_temp( j['low_temp_f'], j['high_temp_f'], temp )
 		if ( rgb[0] != prev_rgb[0] or rgb[1] != prev_rgb[1] or rgb[2] != prev_rgb[2] ):
 			lcd.set_color( rgb[0] / 255.0, rgb[1] / 255.0, rgb[2] / 255.0 )
 			prev_rgb = rgb
 
 		lcd.set_cursor( 0, 0 )
-		lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ) + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, temp, humid ) + monitor_str.ljust( j['lcd_columns'] ) )
+		lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ) + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, temp, humid ) + 'Desired: {0:3}\x01'.format( desired_temp ).ljust( j['lcd_columns'] ) )
 
 	time.sleep( 1 )

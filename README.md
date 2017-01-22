@@ -34,8 +34,9 @@ homeassistant:
       icon: mdi:thermometer
     sensor.garage_humidity:
       icon: mdi:water-percent
-    binary_sensor.garage_temp_monitor:
-      icon: mdi:eye
+	switch.garage_temp_monitor:
+	  icon: mdi:eye
+	  friendly_name: Temp Monitor
 
 sensor:
   - platform: mqtt
@@ -48,17 +49,52 @@ sensor:
     name: 'Garage Humidity'
     unit_of_measurement: '%'
 
-binary_sensor:
-  platform: mqtt
-  state_topic: "garage/pi/temp-monitor"
-  name: "Garage Temp Monitor"
-  sensor_class: cold
+switch:
+  platform: command_line
+  switches:
+    garage_temp_monitor:
+    command_on: "echo 'Garage temp monitor'"
+
+input_slider:
+  garage_temp_desired:
+    name: Desired Temperature
+    initial: 50
+    min: 40
+    max: 60
+    step: 1
+    icon: mdi:target
+
+group:
+  garage:
+    name: Garage
+    control: hidden
+    entities:
+        - switch.garage_temp_monitor
+        - sensor.garage_temperature
+        - input_slider.garage_temp_desired
+        - sensor.garage_humidity
 
 automation:
+  - alias: 'Garage temp reached desired temp'
+    trigger:
+      platform: mqtt
+      topic: 'garage/pi/temperature'
+    condition:
+      condition: and
+      conditions:
+        - condition: state
+          entity_id: switch.garage_temp_monitor
+          state: 'on'
+        - condition: template
+          value_template: '{{ states.sensor.garage_temperature.state >= states.input_slider.garage_temp_desired.state }}'
+    action:
+      - service: switch.turn_off
+        entity_id: switch.garage_temp_monitor
+
   - alias: 'Notify garage temp monitor turned off'
     trigger:
       platform: state
-      entity_id: binary_sensor.garage_temp_monitor
+      entity_id: switch.garage_temp_monitor
       from: 'on'
       to: 'off'
     action:
@@ -66,5 +102,6 @@ automation:
       data_template:
         title: "Garage Monitor OFF @ {{ states.sensor.garage_temperature.state }}°F"
         message: "Temperature in the garage is currently {{ states.sensor.garage_temperature.state }}°F"
+
 ```
 * You probably want to [run this program as a service on your Raspberry Pi](http://www.diegoacuna.me/how-to-run-a-script-as-a-service-in-raspberry-pi-raspbian-jessie/).
