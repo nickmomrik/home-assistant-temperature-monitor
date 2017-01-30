@@ -30,13 +30,14 @@ homeassistant:
   # You should have a bunch of other
   # settings here in your config
   customize:
-    sensor.garage_temperature:
+    - entity_id: sensor.garage_temperature
       icon: mdi:thermometer
-    sensor.garage_humidity:
+    - entity_id: sensor.garage_humidity
       icon: mdi:water-percent
-	switch.garage_temp_monitor:
+	- entity_id: switch.garage_temp_monitor
 	  icon: mdi:eye
 	  friendly_name: Temp Monitor
+	  assumed_state: false
 
 sensor:
   - platform: mqtt
