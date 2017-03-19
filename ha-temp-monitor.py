@@ -150,35 +150,40 @@ while True:
 	humid = int( read_humidity() )
 	temp  = int( read_temperature() )
 
-	if ( False == GPIO.input( j['button_pin'] ) ):
-		if ( 'on' == switch ):
-			switch = 'off'
-		else:
-			switch = 'on'
+	try:
+		if ( False == GPIO.input( j['button_pin'] ) ):
+			if ( 'on' == switch ):
+				switch = 'off'
+			else:
+				switch = 'on'
 
-		switch_change( switch, True )
-		last_update = 0
+			switch_change( switch, True )
+			last_update = 0
 
-	now = time.time();
-	if ( now > last_update + j['update_frequency'] ):
-		last_update = now
+		now = time.time();
+		if ( now > last_update + j['update_frequency'] ):
+			last_update = now
 
-		client.publish( j['ha_humid_topic'], humid )
-		client.publish( j['ha_temp_topic'], temp )
+			client.publish( j['ha_humid_topic'], humid )
+			client.publish( j['ha_temp_topic'], temp )
 
-		switch       = get_home_assistant_value( j['ha_monitor_entity_id'], switch )
-		desired_temp = int( round( float( get_home_assistant_value( j['ha_desired_entity_id'], desired_temp ) ) ) )
-		out_temp     = int( round( float( get_home_assistant_value( j['ha_out_temp_entity_id'], out_temp ) ) ) )
-		out_humid    = int( round( float( get_home_assistant_value( j['ha_out_humid_entity_id'], out_humid ) ) ) )
+			switch       = get_home_assistant_value( j['ha_monitor_entity_id'], switch )
+			desired_temp = int( round( float( get_home_assistant_value( j['ha_desired_entity_id'], desired_temp ) ) ) )
+			out_temp     = int( round( float( get_home_assistant_value( j['ha_out_temp_entity_id'], out_temp ) ) ) )
+			out_humid    = int( round( float( get_home_assistant_value( j['ha_out_humid_entity_id'], out_humid ) ) ) )
 
-		switch_change( switch, False )
+			switch_change( switch, False )
 
-		rgb = rgb_temp( j['low_temp_f'], j['high_temp_f'], temp )
-		if ( rgb[0] != prev_rgb[0] or rgb[1] != prev_rgb[1] or rgb[2] != prev_rgb[2] ):
-			lcd.set_color( rgb[0] / 255.0, rgb[1] / 255.0, rgb[2] / 255.0 )
-			prev_rgb = rgb
+			rgb = rgb_temp( j['low_temp_f'], j['high_temp_f'], temp )
+			if ( rgb[0] != prev_rgb[0] or rgb[1] != prev_rgb[1] or rgb[2] != prev_rgb[2] ):
+				lcd.set_color( rgb[0] / 255.0, rgb[1] / 255.0, rgb[2] / 255.0 )
+				prev_rgb = rgb
 
-		lcd.set_cursor( 0, 0 )
-		lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ) + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, temp, humid ) + 'Desired: {0:3}\x01'.format( desired_temp ).ljust( j['lcd_columns'] ) )
+			lcd.set_cursor( 0, 0 )
+			lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ) + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, temp, humid ) + 'Desired: {0:3}\x01'.format( desired_temp ).ljust( j['lcd_columns'] ) )
+	except SysCallError as err:
+		print( 'SysCallError: {0}'.format( err ) )
+		# Wait 5 minutes before trying again
+		last_update = last_update + 300
 
 	time.sleep( 1 )
