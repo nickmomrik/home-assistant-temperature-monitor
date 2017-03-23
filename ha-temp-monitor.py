@@ -5,14 +5,14 @@ import time
 import os
 import sys
 import json
-from datetime import datetime
-from datetime import timedelta
 import Adafruit_CharLCD as LCD
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
 import requests
 import smbus
 import RPi.GPIO as GPIO
+from datetime import datetime, timedelta
+from OpenSSL.SSL import SysCallError
 
 # Setup
 with open( "/home/pi/home-assistant-temperature-monitor/config.json" ) as json_file:
