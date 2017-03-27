@@ -12,22 +12,21 @@ import requests
 import smbus
 import RPi.GPIO as GPIO
 from datetime import datetime, timedelta
-from OpenSSL.SSL import SysCallError
 
 # Setup
 with open( "/home/pi/home-assistant-temperature-monitor/config.json" ) as json_file:
-    j = json.load( json_file )
+    config = json.load( json_file )
 
 GPIO.setmode( GPIO.BCM )
-GPIO.setup( j['button_pin'], GPIO.IN )
-GPIO.setup( j['led_pin'], GPIO.OUT )
-GPIO.output( j['led_pin'], GPIO.LOW )
+GPIO.setup( config['button_pin'], GPIO.IN )
+GPIO.setup( config['led_pin'], GPIO.OUT )
+GPIO.output( config['led_pin'], GPIO.LOW )
 bus = smbus.SMBus( 1 )
-lcd = LCD.Adafruit_RGBCharLCD( j['lcd_rs_pin'], j['lcd_en_pin'],
-								j['lcd_d4_pin'], j['lcd_d5_pin'], j['lcd_d6_pin'], j['lcd_d7_pin'],
-								j['lcd_columns'], j['lcd_rows'],
-								j['lcd_red_pin'], j['lcd_green_pin'], j['lcd_blue_pin'],
-								enable_pwm = True )
+lcd = LCD.Adafruit_RGBCharLCD( config['lcd_rs_pin'], config['lcd_en_pin'],
+	config['lcd_d4_pin'], config['lcd_d5_pin'], config['lcd_d6_pin'], config['lcd_d7_pin'],
+	config['lcd_columns'], config['lcd_rows'],
+	config['lcd_red_pin'], config['lcd_green_pin'], config['lcd_blue_pin'],
+	enable_pwm = True )
 
 # Some defaults
 prev_rgb     = ( 1, 1, 1 )
@@ -39,12 +38,12 @@ out_humid    = 0
 bus_delay    = 0.025
 
 # Home Assistant
-url = j['ha_url'] + '/api/states/'
-headers = {'x-ha-access': j['ha_password'],
-			'content-type': 'application/json'}
-client = mqtt.Client( "ha-client" )
-client.connect( j['ha_ip'] )
-client.loop_start()
+url = config['ha_url'] + '/api/states/'
+headers = {'x-ha-access': config['ha_password'],
+	'content-type': 'application/json'}
+mqtt.Client.connected_flag = False
+mqtt.Client.bad_connection_flag = False
+mqtt.Client.retry_count = 0
 
 # Create degree character
 lcd.create_char( 1, [28,20,28,0,0,0,0,0] )
@@ -136,58 +135,106 @@ def set_home_assistant_switch( entity_id, switch ):
 		print e
 
 def switch_change( switch, push ):
+	global config
+
 	if ( 'on' == switch ):
-		GPIO.output( j['led_pin'], GPIO.HIGH )
+		GPIO.output( config['led_pin'], GPIO.HIGH )
 	else:
-		GPIO.output( j['led_pin'], GPIO.LOW )
+		GPIO.output( config['led_pin'], GPIO.LOW )
 
 	if ( True == push ):
-		set_home_assistant_switch( j['ha_monitor_entity_id'], switch )
+		set_home_assistant_switch( config['ha_monitor_entity_id'], switch )
 
-while True:
-	update_lcd = False
+def on_disconnect( client, userdata, flags, rc = 0 ):
+	client.connected_flag = False
 
-	humid = int( read_humidity() )
-	temp  = int( read_temperature() )
+def on_connect( client, userdata, flags, rc ):
+	if ( 0 == rc ):
+		client.connected_flag = True
+	else:
+		client.bad_connection_flag = True
 
-	try:
-		if ( False == GPIO.input( j['button_pin'] ) ):
-			if ( 'on' == switch ):
-				switch = 'off'
-			else:
-				switch = 'on'
+def update_home_assistant_sensors( humid, temp ):
+	global last_update, desired_temp, out_temp, out_humid, switch, config, prev_rgb
 
-			switch_change( switch, True )
-			last_update = 0
+	client = mqtt.Client( 'ha-client' )
+	client.on_connect = on_connect
+	client.on_disconnect = on_disconnect
 
-		now = time.time();
-		if ( now > last_update + j['update_frequency'] ):
-			client.publish( j['ha_humid_topic'], humid )
-			client.publish( j['ha_temp_topic'], temp )
+	run_main = False
+	run_flag = True
+	while ( run_flag ):
+		while ( False == client.connected_flag and client.retry_count < 3 ):
+			count = 0
+			run_main = False
+			try:
+				client.connect( config['ha_ip'] )
+				break
+			except:
+				client.retry_count += 1
+				if ( client.retry_count > 5 ):
+					run_flag = False
 
-			switch       = get_home_assistant_value( j['ha_monitor_entity_id'], switch )
-			desired_temp = int( round( float( get_home_assistant_value( j['ha_desired_entity_id'], desired_temp ) ) ) )
-			out_temp     = int( round( float( get_home_assistant_value( j['ha_out_temp_entity_id'], out_temp ) ) ) )
-			out_humid    = int( round( float( get_home_assistant_value( j['ha_out_humid_entity_id'], out_humid ) ) ) )
+			time.sleep( 3 )
+
+		if ( run_main ):
+			run_flag = False
+
+			client.publish( config['ha_humid_topic'], humid )
+			client.publish( config['ha_temp_topic'], temp )
+
+			switch       = get_home_assistant_value( config['ha_monitor_entity_id'], switch )
+			desired_temp = int( round( float( get_home_assistant_value( config['ha_desired_entity_id'], desired_temp ) ) ) )
+			out_temp     = int( round( float( get_home_assistant_value( config['ha_out_temp_entity_id'], out_temp ) ) ) )
+			out_humid    = int( round( float( get_home_assistant_value( config['ha_out_humid_entity_id'], out_humid ) ) ) )
 
 			switch_change( switch, False )
 
-			rgb = rgb_temp( j['low_temp_f'], j['high_temp_f'], temp )
+			rgb = rgb_temp( config['low_temp_f'], config['high_temp_f'], temp )
 			if ( rgb[0] != prev_rgb[0] or rgb[1] != prev_rgb[1] or rgb[2] != prev_rgb[2] ):
 				lcd.set_color( rgb[0] / 255.0, rgb[1] / 255.0, rgb[2] / 255.0 )
 				prev_rgb = rgb
 
 			lcd.set_cursor( 0, 0 )
-			lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ) + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, temp, humid ) + 'Desired: {0:3}\x01'.format( desired_temp ).ljust( j['lcd_columns'] ) )
+			lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ) + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, temp, humid ) + 'Desired: {0:3}\x01'.format( desired_temp ).ljust( config['lcd_columns'] ) )
 
 			last_update = time.time()
-	except SysCallError as err:
-		print( 'SysCallError: {0}'.format( err ) )
-		# Wait 5 minutes before trying again
-		last_update = time.time() + 300
-	except NoneType as err:
-		print( 'NoneType: {0}'.format( err ) )
-		# Wait 5 minutes before trying again
-		last_update = time.time() + 300
+		else:
+			client.loop_start()
+	        while ( True ):
+				if ( client.connected_flag ):
+					client.retry_count = 0
+					run_main = True
+					break
+				elif ( count > 6 or client.bad_connection_flag ):
+					client.loop_stop()
+					client.retry_count += 1
+					if ( client.retry_count > 5 ):
+						run_flag = False
+						break
+				else:
+					time.sleep( 3 )
+					count += 1
+
+	client.disconnect()
+	client.loop_stop()
+
+while ( True ):
+	update_lcd = False
+
+	humid = int( read_humidity() )
+	temp  = int( read_temperature() )
+
+	if ( False == GPIO.input( config['button_pin'] ) ):
+		if ( 'on' == switch ):
+			switch = 'off'
+		else:
+			switch = 'on'
+
+		switch_change( switch, True )
+		last_update = 0
+
+	if ( time.time() > ( last_update + config['update_frequency'] ) ):
+		update_home_assistant_sensors( humid, temp )
 
 	time.sleep( 1 )
