@@ -155,6 +155,8 @@ def on_connect( client, userdata, flags, rc ):
 		client.bad_connection_flag = True
 
 def update_home_assistant_sensors( humid, temp ):
+	#http://www.steves-internet-guide.com/client-connections-python-mqtt/
+
 	global last_update, desired_temp, out_temp, out_humid, switch, config, prev_rgb
 
 	client = mqtt.Client( 'ha-client' )
