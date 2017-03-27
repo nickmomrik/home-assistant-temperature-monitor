@@ -162,8 +162,6 @@ while True:
 
 		now = time.time();
 		if ( now > last_update + j['update_frequency'] ):
-			last_update = now
-
 			client.publish( j['ha_humid_topic'], humid )
 			client.publish( j['ha_temp_topic'], temp )
 
@@ -181,9 +179,15 @@ while True:
 
 			lcd.set_cursor( 0, 0 )
 			lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ) + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, temp, humid ) + 'Desired: {0:3}\x01'.format( desired_temp ).ljust( j['lcd_columns'] ) )
+
+			last_update = time.time()
 	except SysCallError as err:
 		print( 'SysCallError: {0}'.format( err ) )
 		# Wait 5 minutes before trying again
-		last_update = last_update + 300
+		last_update = time.time() + 300
+	except NoneType as err:
+		print( 'NoneType: {0}'.format( err ) )
+		# Wait 5 minutes before trying again
+		last_update = time.time() + 300
 
 	time.sleep( 1 )
