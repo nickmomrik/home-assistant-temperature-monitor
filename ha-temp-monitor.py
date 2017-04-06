@@ -86,15 +86,11 @@ def read_temperature():
 	return convert_c_to_f( get_si7021_data( 0xF3 ) * 175.72 / 65536.0 - 46.85 )
 
 def get_home_assistant_value( entity_id, old_value ):
-	ret = old_value
-
 	state = get_home_assistant_state( entity_id )
-	value = state['state']
-	if ( value and 'unknown' != value ):
-		try:
-			ret = value
-		except ValueError as e:
-			print e, response.json()
+	if ( state is not None and 'state' in state and state['state'] and 'unknown' != state['state'] ):
+		ret = state['state']
+	else:
+		ret = old_value
 
 	return ret
 
