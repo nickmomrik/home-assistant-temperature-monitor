@@ -23,7 +23,7 @@ Hardware used:
 * `cd home-assistant-temperature-monitor`
 * `cp config-sample.json config.json`
 * Edit `config.json` to set all of the options. Change `HOSTNAME` to whatever you want to use as a name and make sure your HA config also matches.
-* Get [Pushbullet](https://home-assistant.io/components/notify.pushbullet/) and [Dark Sky](https://home-assistant.io/components/sensor.darksky/) working in Home Assistant
+* Get [iOS](https://home-assistant.io/docs/ecosystem/ios/) (or [other notify component](https://home-assistant.io/components/notify/)) and [Dark Sky](https://home-assistant.io/components/sensor.darksky/) working in Home Assistant
 * Configure Home Assistant. Here's an example of some `configuration.yaml` settings:
 
 ```
@@ -77,33 +77,32 @@ group:
         - sensor.garage_humidity
 
 automation:
-  - alias: 'Garage temp reached desired temp'
-    trigger:
-      platform: mqtt
-      topic: 'garage/pi/temperature'
-    condition:
-      condition: and
-      conditions:
-        - condition: state
-          entity_id: switch.garage_temp_monitor
-          state: 'on'
-        - condition: template
-          value_template: '{{ states.sensor.garage_temperature.state >= states.input_slider.garage_temp_desired.state }}'
-    action:
-      - service: switch.turn_off
-        entity_id: switch.garage_temp_monitor
+	- alias: 'Garage temp reached desired temp'
+	  trigger:
+	    platform: mqtt
+	    topic: 'garage/pi/temperature'
+	  condition:
+	    condition: and
+	    conditions:
+	      - condition: state
+	        entity_id: switch.garage_temp_monitor
+	        state: 'on'
+	      - condition: template
+	        value_template: '{{ states.sensor.garage_temperature.state >= states.input_slider.garage_temp_desired.state }}'
+	  action:
+	    - service: switch.turn_off
+	      entity_id: switch.garage_temp_monitor
 
-  - alias: 'Notify garage temp monitor turned off'
-    trigger:
-      platform: state
-      entity_id: switch.garage_temp_monitor
-      from: 'on'
-      to: 'off'
-    action:
-      service: notify.pushbullet
-      data_template:
-        title: "Garage Monitor OFF @ {{ states.sensor.garage_temperature.state }}°F"
-        message: "Temperature in the garage is currently {{ states.sensor.garage_temperature.state }}°F"
-
+	- alias: 'Notify garage temp monitor turned off'
+	  trigger:
+	    platform: state
+	    entity_id: switch.garage_temp_monitor
+	    from: 'on'
+	    to: 'off'
+	  action:
+	    service: notify.ios_IPHONENAME
+	    data_template:
+	      title: "Garage Monitor Turned OFF"
+	      message: "Temperature in the garage is {{ states.sensor.garage_temperature.state }}°F"
 ```
 * You probably want to [run this program as a service on your Raspberry Pi](http://www.diegoacuna.me/how-to-run-a-script-as-a-service-in-raspberry-pi-raspbian-jessie/).
