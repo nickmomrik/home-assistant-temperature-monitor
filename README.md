@@ -18,6 +18,7 @@ Hardware used:
 * Install [smbus](https://pypi.python.org/pypi/smbus-cffi/0.5.1)
 * Install [paho-mqtt](https://pypi.python.org/pypi/paho-mqtt)
 * Install [Adafruit_Python_CharLCD](https://github.com/adafruit/Adafruit_Python_CharLCD)
+* Install [Adafruit_Python_GPIO](https://github.com/adafruit/Adafruit_Python_GPIO)
 * Clone this repo to `/home/pi`
 * `cd home-assistant-temperature-monitor`
 * `cp config-sample.json config.json`
