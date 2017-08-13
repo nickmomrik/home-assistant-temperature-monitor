@@ -155,16 +155,17 @@ def update_home_assistant_sensors( humid, temp ):
 
 	global last_update, desired_temp, out_temp, out_humid, switch, config, prev_rgb
 
-	client = mqtt.Client( 'ha-client' )
+	client = mqtt.Client()
 	client.on_connect = on_connect
 	client.on_disconnect = on_disconnect
 
 	run_main = False
 	run_flag = True
 	while ( run_flag ):
-		while ( False == client.connected_flag and client.retry_count < 3 ):
+		while ( not client.connected_flag and client.retry_count < 3 ):
 			count = 0
 			run_main = False
+
 			try:
 				client.connect( config['ha_ip'] )
 				break
@@ -199,6 +200,7 @@ def update_home_assistant_sensors( humid, temp ):
 			last_update = time.time()
 		else:
 			client.loop_start()
+
 	        while ( True ):
 				if ( client.connected_flag ):
 					client.retry_count = 0
