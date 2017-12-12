@@ -119,16 +119,17 @@ def set_home_assistant_switch( entity_id, switch ):
 
 	# Otherwise Home Assistant resets these values!
 	state = get_home_assistant_state( entity_id )
-	if ( state['attributes']['icon'] ):
-		new_state['attributes']['icon'] = state['attributes']['icon']
-	if ( state['attributes']['friendly_name'] ):
-		new_state['attributes']['friendly_name'] = state['attributes']['friendly_name']
+	if ( state is not None ):
+		if ( state['attributes']['icon'] ):
+			new_state['attributes']['icon'] = state['attributes']['icon']
+		if ( state['attributes']['friendly_name'] ):
+			new_state['attributes']['friendly_name'] = state['attributes']['friendly_name']
 
-	try:
-		data = json.dumps( new_state )
-		requests.post( url + entity_id, data, headers = headers )
-	except requests.exceptions.RequestException as e:
-		print e
+		try:
+			data = json.dumps( new_state )
+			requests.post( url + entity_id, data, headers = headers )
+		except requests.exceptions.RequestException as e:
+			print e
 
 def switch_change( switch, push ):
 	global config
