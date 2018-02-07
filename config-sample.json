@@ -18,15 +18,13 @@
 	"high_temp_f": 80,
 	"low_temp_f": 32,
 
-	"update_frequency": 60,
-
 	"ha_password": "123456",
 	"ha_ip": "192.168.1.5",
 	"ha_url": "http://192.168.1.5:8123",
 
-	"ha_humid_topic": "garage/pi/humidity",
-	"ha_temp_topic": "garage/pi/temperature",
-	"ha_monitor_entity_id": "switch.garage_temp_monitor",
+	"ha_humid_topic": "garage/humidity",
+	"ha_temp_topic": "garage/temperature",
+	"ha_status_topic": "garage/heat",
 	"ha_desired_entity_id": "input_slider.garage_temp_desired",
 	"ha_out_temp_entity_id": "sensor.dark_sky_temperature",
 	"ha_out_humid_entity_id": "sensor.dark_sky_humidity",

@@ -22,7 +22,7 @@ Hardware used:
 * Clone this repo to `/home/pi`
 * `cd home-assistant-temperature-monitor`
 * `cp config-sample.json config.json`
-* Edit `config.json` to set all of the options. Change `HOSTNAME` to whatever you want to use as a name and make sure your HA config also matches.
+* Edit `config.json` to set all of the options.
 * Get [iOS](https://home-assistant.io/docs/ecosystem/ios/) (or [other notify component](https://home-assistant.io/components/notify/)) and [Dark Sky](https://home-assistant.io/components/sensor.darksky/) working in Home Assistant
 * Configure Home Assistant. Here's an example of some `configuration.yaml` settings:
 
@@ -31,39 +31,39 @@ homeassistant:
   # You should have a bunch of other
   # settings here in your config
   customize:
-    - entity_id: sensor.garage_temperature
+    sensor.garage_temperature:
       icon: mdi:thermometer
-    - entity_id: sensor.garage_humidity
+    sensor.garage_humidity:
       icon: mdi:water-percent
-	- entity_id: switch.garage_temp_monitor
-	  icon: mdi:eye
-	  friendly_name: Temp Monitor
-	  assumed_state: false
+	binary_sensor.garage_heat:
+	  icon: mdi:radiator
 
 sensor:
   - platform: mqtt
-    state_topic: 'garage/pi/temperature'
+    state_topic: 'garage/temperature'
     name: 'Garage Temperature'
     unit_of_measurement: '°F'
 
   - platform: mqtt
-    state_topic: 'garage/pi/humidity'
+    state_topic: 'garage/humidity'
     name: 'Garage Humidity'
     unit_of_measurement: '%'
 
-switch:
-  platform: command_line
-  switches:
-    garage_temp_monitor:
-    command_on: "echo 'Garage temp monitor'"
+binary_sensor:
+  - platform: mqtt
+    name: Garage Heat
+    state_topic: "garage/heat"
+    payload_on: "on"
+    payload_off: "off"
 
-input_slider:
+input_number:
   garage_temp_desired:
-    name: Desired Temperature
-    initial: 50
+    name: Garage Target
+    initial: 60
     min: 40
-    max: 60
+    max: 80
     step: 1
+    mode: slider
     icon: mdi:target
 
 group:
@@ -71,38 +71,29 @@ group:
     name: Garage
     control: hidden
     entities:
-        - switch.garage_temp_monitor
+        - binary_sensor.garage_heat
         - sensor.garage_temperature
-        - input_slider.garage_temp_desired
+        - input_number.garage_temp_desired
         - sensor.garage_humidity
 
 automation:
 	- alias: 'Garage temp reached desired temp'
 	  trigger:
-	    platform: mqtt
-	    topic: 'garage/pi/temperature'
+	    platform: state
+		entity_id: sensor.garage_temperature
 	  condition:
 	    condition: and
-	    conditions:
-	      - condition: state
-	        entity_id: switch.garage_temp_monitor
-	        state: 'on'
-	      - condition: template
-	        value_template: '{{ states.sensor.garage_temperature.state >= states.input_slider.garage_temp_desired.state }}'
-	  action:
-	    - service: switch.turn_off
-	      entity_id: switch.garage_temp_monitor
-
-	- alias: 'Notify garage temp monitor turned off'
-	  trigger:
-	    platform: state
-	    entity_id: switch.garage_temp_monitor
-	    from: 'on'
-	    to: 'off'
+		conditions:
+  		  - condition: state
+		    entity_id: binary_sensor.garage_heat
+			state: 'on'
+  		  - condition: template
+		    value_template: '{{ states.sensor.garage_temperature.state >= states.input_number.garage_temp_desired.state }}'
 	  action:
 	    service: notify.ios_IPHONENAME
-	    data_template:
-	      title: "Garage Monitor Turned OFF"
-	      message: "Temperature in the garage is {{ states.sensor.garage_temperature.state }}°F"
+		data_template:
+  		  title: "Garage Target Reached"
+  		  message: "Temperature in the garage is {{ states.sensor.garage_temperature.state }}°F"
+
 ```
 * You probably want to [run this program as a service on your Raspberry Pi](http://www.diegoacuna.me/how-to-run-a-script-as-a-service-in-raspberry-pi-raspbian-jessie/).

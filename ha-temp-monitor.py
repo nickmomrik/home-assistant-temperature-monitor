@@ -30,10 +30,11 @@ lcd = LCD.Adafruit_RGBCharLCD( config['lcd_rs_pin'], config['lcd_en_pin'],
 
 # Some defaults
 prev_rgb     = ( 1, 1, 1 )
-switch       = 'off'
-last_update  = 0
+status       = 'off'
 desired_temp = 0
+temp         = 0
 out_temp     = 0
+humid        = 0
 out_humid    = 0
 bus_delay    = 0.025
 
@@ -105,43 +106,6 @@ def get_home_assistant_state( entity_id ) :
 
 	return ret
 
-def set_home_assistant_switch( entity_id, switch ) :
-	if ( 'on' != switch ) :
-		switch = 'off'
-
-	new_state = {
-		'state': switch,
-		'attributes': {
-			'icon': '',
-			'friendly_name': ''
-		}
-	}
-
-	# Otherwise Home Assistant resets these values!
-	state = get_home_assistant_state( entity_id )
-	if ( state is not None ) :
-		if ( state['attributes']['icon'] ) :
-			new_state['attributes']['icon'] = state['attributes']['icon']
-		if ( state['attributes']['friendly_name'] ) :
-			new_state['attributes']['friendly_name'] = state['attributes']['friendly_name']
-
-		try :
-			data = json.dumps( new_state )
-			requests.post( url + entity_id, data, headers = headers )
-		except requests.exceptions.RequestException as e :
-			print( e )
-
-def switch_change( switch, push ) :
-	global config
-
-	if ( 'on' == switch ) :
-		GPIO.output( config['led_pin'], GPIO.HIGH )
-	else :
-		GPIO.output( config['led_pin'], GPIO.LOW )
-
-	if ( True == push ) :
-		set_home_assistant_switch( config['ha_monitor_entity_id'], switch )
-
 def on_disconnect( client, userdata, flags, rc = 0 ) :
 	client.connected_flag = False
 
@@ -151,10 +115,10 @@ def on_connect( client, userdata, flags, rc ) :
 	else :
 		client.bad_connection_flag = True
 
-def update_home_assistant_sensors( humid, temp ) :
+def update_home_assistant_sensors( humid, temp, status ) :
 	#http://www.steves-internet-guide.com/client-connections-python-mqtt/
 
-	global last_update, desired_temp, out_temp, out_humid, switch, config, prev_rgb
+	global desired_temp, out_temp, out_humid, config, prev_rgb
 
 	client = mqtt.Client()
 	client.on_connect = on_connect
@@ -182,13 +146,11 @@ def update_home_assistant_sensors( humid, temp ) :
 
 			client.publish( config['ha_humid_topic'], humid )
 			client.publish( config['ha_temp_topic'], temp )
+			client.publish( config['ha_status_topic'], status )
 
-			switch       = get_home_assistant_value( config['ha_monitor_entity_id'], switch )
 			desired_temp = int( round( float( get_home_assistant_value( config['ha_desired_entity_id'], desired_temp ) ) ) )
 			out_temp     = int( round( float( get_home_assistant_value( config['ha_out_temp_entity_id'], out_temp ) ) ) )
 			out_humid    = int( round( float( get_home_assistant_value( config['ha_out_humid_entity_id'], out_humid ) ) ) )
-
-			switch_change( switch, False )
 
 			rgb = rgb_temp( config['low_temp_f'], config['high_temp_f'], temp )
 			if ( rgb[0] != prev_rgb[0] or rgb[1] != prev_rgb[1] or rgb[2] != prev_rgb[2] ) :
@@ -197,8 +159,6 @@ def update_home_assistant_sensors( humid, temp ) :
 
 			lcd.set_cursor( 0, 0 )
 			lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ) + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, temp, humid ) + 'Desired: {0:3}\x01'.format( desired_temp ).ljust( config['lcd_columns'] ) )
-
-			last_update = time.time()
 		else :
 			client.loop_start()
 
@@ -221,21 +181,29 @@ def update_home_assistant_sensors( humid, temp ) :
 	client.loop_stop()
 
 while ( True ) :
-	update_lcd = False
+	do_update = False
 
+	last_humid = humid
 	humid = int( read_humidity() )
+	last_temp = temp
 	temp  = int( read_temperature() )
+	if ( last_humid != humid or last_temp != temp ) :
+		do_update = True
 
 	if ( False == GPIO.input( config['button_pin'] ) ) :
-		if ( 'on' == switch ) :
-			switch = 'off'
+		do_update = True
+
+		if ( 'on' == status ) :
+			status = 'off'
+			GPIO.output( config['led_pin'], GPIO.LOW )
 		else :
-			switch = 'on'
+			status = 'on'
+			GPIO.output( config['led_pin'], GPIO.HIGH )
 
-		switch_change( switch, True )
-		last_update = 0
+		while ( False == GPIO.input( config['button_pin'] ) ) :
+			pass
 
-	if ( time.time() > ( last_update + config['update_frequency'] ) ) :
-		update_home_assistant_sensors( humid, temp )
+	if ( do_update ) :
+		update_home_assistant_sensors( humid, temp, status )
 
 	time.sleep( 1 )
