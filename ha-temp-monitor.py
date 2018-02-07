@@ -37,6 +37,7 @@ out_temp     = 0
 humid        = 0
 out_humid    = 0
 bus_delay    = 0.025
+last_pull    = 0
 
 # Home Assistant
 url = config['ha_url'] + '/api/states/'
@@ -117,9 +118,6 @@ def on_connect( client, userdata, flags, rc ) :
 
 def update_home_assistant_sensors( humid, temp, status ) :
 	#http://www.steves-internet-guide.com/client-connections-python-mqtt/
-
-	global desired_temp, out_temp, out_humid, config, prev_rgb
-
 	client = mqtt.Client()
 	client.on_connect = on_connect
 	client.on_disconnect = on_disconnect
@@ -147,18 +145,6 @@ def update_home_assistant_sensors( humid, temp, status ) :
 			client.publish( config['ha_humid_topic'], humid )
 			client.publish( config['ha_temp_topic'], temp )
 			client.publish( config['ha_status_topic'], status )
-
-			desired_temp = int( round( float( get_home_assistant_value( config['ha_desired_entity_id'], desired_temp ) ) ) )
-			out_temp     = int( round( float( get_home_assistant_value( config['ha_out_temp_entity_id'], out_temp ) ) ) )
-			out_humid    = int( round( float( get_home_assistant_value( config['ha_out_humid_entity_id'], out_humid ) ) ) )
-
-			rgb = rgb_temp( config['low_temp_f'], config['high_temp_f'], temp )
-			if ( rgb[0] != prev_rgb[0] or rgb[1] != prev_rgb[1] or rgb[2] != prev_rgb[2] ) :
-				lcd.set_color( rgb[0] / 255.0, rgb[1] / 255.0, rgb[2] / 255.0 )
-				prev_rgb = rgb
-
-			lcd.set_cursor( 0, 0 )
-			lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ) + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, temp, humid ) + 'Desired: {0:3}\x01'.format( desired_temp ).ljust( config['lcd_columns'] ) )
 		else :
 			client.loop_start()
 
@@ -205,5 +191,23 @@ while ( True ) :
 
 	if ( do_update ) :
 		update_home_assistant_sensors( humid, temp, status )
+
+	if ( time.time() > ( last_pull + config['pull_frequency'] ) ) :
+		do_update = True
+
+		desired_temp = int( round( float( get_home_assistant_value( config['ha_desired_entity_id'], desired_temp ) ) ) )
+		out_temp     = int( round( float( get_home_assistant_value( config['ha_out_temp_entity_id'], out_temp ) ) ) )
+		out_humid    = int( round( float( get_home_assistant_value( config['ha_out_humid_entity_id'], out_humid ) ) ) )
+
+		last_pull = time.time()
+
+	if ( do_update ) :
+		rgb = rgb_temp( config['low_temp_f'], config['high_temp_f'], temp )
+		if ( rgb[0] != prev_rgb[0] or rgb[1] != prev_rgb[1] or rgb[2] != prev_rgb[2] ) :
+			lcd.set_color( rgb[0] / 255.0, rgb[1] / 255.0, rgb[2] / 255.0 )
+			prev_rgb = rgb
+
+		lcd.set_cursor( 0, 0 )
+		lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ) + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, temp, humid ) + 'Desired: {0:3}\x01'.format( desired_temp ).ljust( config['lcd_columns'] ) )
 
 	time.sleep( 1 )
