@@ -39,6 +39,11 @@ out_humid    = 0
 bus_delay    = 0.025
 last_pull    = 0
 
+# Low Pass Filters
+# https://www.norwegiancreations.com/2015/10/tutorial-potentiometers-with-arduino-and-filtering/
+temp_alpha = 0.1
+humid_alpha = 0.1
+
 # Home Assistant
 url = config['ha_url'] + '/api/states/'
 headers = {'x-ha-access': config['ha_password'],
@@ -166,14 +171,19 @@ def update_home_assistant_sensors( humid, temp, status ) :
 	client.disconnect()
 	client.loop_stop()
 
+
+temp = read_temperature()
+humid = read_humidity()
+
 while ( True ) :
 	do_update = False
 
-	last_humid = humid
-	humid = int( read_humidity() )
-	last_temp = temp
-	temp  = int( read_temperature() )
-	if ( last_humid != humid or last_temp != temp ) :
+	last_humid = int( humid )
+	humid = ( humid_alpha * read_humidity() ) + ( ( 1 - humid_alpha ) * humid );
+	last_temp = int( temp )
+	temp = ( temp_alpha * read_temperature() ) + ( ( 1 - temp_alpha ) * temp );
+
+	if ( last_humid != int( humid ) or last_temp != int( temp ) ) :
 		do_update = True
 
 	if ( False == GPIO.input( config['button_pin'] ) ) :
@@ -190,7 +200,7 @@ while ( True ) :
 			pass
 
 	if ( do_update ) :
-		update_home_assistant_sensors( humid, temp, status )
+		update_home_assistant_sensors( int( humid ), int( temp ), status )
 
 	if ( time.time() > ( last_pull + config['pull_frequency'] ) ) :
 		do_update = True
@@ -208,6 +218,6 @@ while ( True ) :
 			prev_rgb = rgb
 
 		lcd.set_cursor( 0, 0 )
-		lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ) + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, temp, humid ) + 'Desired: {0:3}\x01'.format( desired_temp ).ljust( config['lcd_columns'] ) )
+		lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ) + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, int( temp ), int( humid ) ) + 'Desired: {0:3}\x01'.format( desired_temp ).ljust( config['lcd_columns'] ) )
 
 	time.sleep( 1 )
