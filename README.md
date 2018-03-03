@@ -38,6 +38,14 @@ homeassistant:
 	binary_sensor.garage_heat:
 	  icon: mdi:radiator
 
+mqtt_statestream:
+  base_topic: ha
+  include:
+    entities:
+      - input_number.garage_target
+      - sensor.dark_sky_temperature
+      - sensor.dark_sky_humidity
+
 sensor:
   - platform: mqtt
     state_topic: 'garage/temperature'
@@ -57,7 +65,7 @@ binary_sensor:
     payload_off: "off"
 
 input_number:
-  garage_temp_desired:
+  garage_target:
     name: Garage Target
     initial: 60
     min: 40
@@ -73,11 +81,11 @@ group:
     entities:
         - binary_sensor.garage_heat
         - sensor.garage_temperature
-        - input_number.garage_temp_desired
+        - input_number.garage_target
         - sensor.garage_humidity
 
 automation:
-	- alias: 'Garage temp reached desired temp'
+	- alias: 'Garage temp reached target temp'
 	  trigger:
 	    platform: state
 		entity_id: sensor.garage_temperature
@@ -88,7 +96,7 @@ automation:
 		    entity_id: binary_sensor.garage_heat
 			state: 'on'
   		  - condition: template
-		    value_template: '{{ states.sensor.garage_temperature.state >= states.input_number.garage_temp_desired.state }}'
+		    value_template: '{{ states.sensor.garage_temperature.state >= states.input_number.garage_target.state }}'
 	  action:
 	    service: notify.ios_IPHONENAME
 		data_template:

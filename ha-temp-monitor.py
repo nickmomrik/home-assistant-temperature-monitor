@@ -8,7 +8,6 @@ import json
 import Adafruit_CharLCD as LCD
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
-import requests
 import smbus
 import RPi.GPIO as GPIO
 from datetime import datetime, timedelta
@@ -31,26 +30,18 @@ lcd = LCD.Adafruit_RGBCharLCD( config['lcd_rs_pin'], config['lcd_en_pin'],
 # Some defaults
 prev_rgb     = ( 1, 1, 1 )
 status       = 'off'
-desired_temp = 0
+target_temp = 0
 temp         = 0
 out_temp     = 0
 humid        = 0
 out_humid    = 0
 bus_delay    = 0.025
-last_pull    = 0
+last_update  = 0
 
 # Low Pass Filters
 # https://www.norwegiancreations.com/2015/10/tutorial-potentiometers-with-arduino-and-filtering/
 temp_alpha = 0.1
 humid_alpha = 0.1
-
-# Home Assistant
-url = config['ha_url'] + '/api/states/'
-headers = {'x-ha-access': config['ha_password'],
-	'content-type': 'application/json'}
-mqtt.Client.connected_flag = False
-mqtt.Client.bad_connection_flag = False
-mqtt.Client.retry_count = 0
 
 # Create degree character
 lcd.create_char( 1, [28,20,28,0,0,0,0,0] )
@@ -92,132 +83,70 @@ def read_temperature() :
 	# 0xF3(243) - Temperature NO HOLD master mode
 	return convert_c_to_f( get_si7021_data( 0xF3 ) * 175.72 / 65536.0 - 46.85 )
 
-def get_home_assistant_value( entity_id, old_value ) :
-	state = get_home_assistant_state( entity_id )
-	if ( state is not None and 'state' in state and state['state'] and 'unknown' != state['state'] ) :
-		ret = state['state']
-	else :
-		ret = old_value
-
-	return ret
-
-def get_home_assistant_state( entity_id ) :
-	ret = None
-	try :
-		response = requests.get( url + entity_id, headers = headers )
-		if ( 200 == response.status_code and 'unknown' != response.json()['state'] ) :
-			ret = response.json()
-	except requests.exceptions.RequestException as e :
-		print( e )
-
-	return ret
-
-def on_disconnect( client, userdata, flags, rc = 0 ) :
-	client.connected_flag = False
-
 def on_connect( client, userdata, flags, rc ) :
 	if ( 0 == rc ) :
 		client.connected_flag = True
-	else :
-		client.bad_connection_flag = True
+		client.subscribe( [( config['target_temp_topic'], 1 ), ( config['outdoor_temp_topic'], 1 ), ( config['outdoor_humid_topic'], 1)] )
 
-def update_home_assistant_sensors( humid, temp, status ) :
-	#http://www.steves-internet-guide.com/client-connections-python-mqtt/
-	client = mqtt.Client()
-	client.on_connect = on_connect
-	client.on_disconnect = on_disconnect
+def on_message( client, userdata, msg ) :
+	global target_temp, out_temp, out_humid
 
-	run_main = False
-	run_flag = True
-	while ( run_flag ) :
-		while ( not client.connected_flag and client.retry_count < 3 ) :
-			count = 0
-			run_main = False
+	value = int( round( float( msg.payload.decode( "utf-8" ) ) ) )
+	if ( config['target_temp_topic'] == msg.topic ) :
+		target_temp = value
+	elif ( config['outdoor_temp_topic'] == msg.topic ) :
+		out_temp = value
+	elif ( config['outdoor_humid_topic'] == msg.topic ) :
+		out_humid = value
 
-			try :
-				client.connect( config['ha_ip'] )
-				break
-			except :
-				client.retry_count += 1
-				if ( client.retry_count > 5 ) :
-					run_flag = False
+client = mqtt.Client()
+client.connected_flag = False
+client.on_connect = on_connect
+client.on_message = on_message
+client.loop_start()
+client.connect( config['ip'] )
+while ( not client.connected_flag ) :
+	time.sleep( 1 )
 
-			time.sleep( 3 )
+try :
+	humid = read_humidity()
+	client.publish( config['humid_topic'], int( humid ) )
+	temp = read_temperature()
+	client.publish( config['temp_topic'], int( temp ) )
 
-		if ( run_main ) :
-			run_flag = False
+	while ( True ) :
+		last_humid = int( humid )
+		humid = ( humid_alpha * read_humidity() ) + ( ( 1 - humid_alpha ) * humid );
+		if ( last_humid != int( humid ) ) :
+			client.publish( config['humid_topic'], int( humid ) )
 
-			client.publish( config['ha_humid_topic'], humid )
-			client.publish( config['ha_temp_topic'], temp )
-			client.publish( config['ha_status_topic'], status )
-		else :
-			client.loop_start()
+		last_temp = int( temp )
+		temp = ( temp_alpha * read_temperature() ) + ( ( 1 - temp_alpha ) * temp );
+		if ( last_temp != int( temp ) ) :
+			client.publish( config['temp_topic'], int( temp ) )
 
-			while ( True ) :
-				if ( client.connected_flag ) :
-					client.retry_count = 0
-					run_main = True
-					break
-				elif ( count > 6 or client.bad_connection_flag ) :
-					client.loop_stop()
-					client.retry_count += 1
-					if ( client.retry_count > 5 ) :
-						run_flag = False
-						break
-				else :
-					time.sleep( 3 )
-					count += 1
+		if ( False == GPIO.input( config['button_pin'] ) ) :
+			if ( 'on' == status ) :
+				status = 'off'
+				GPIO.output( config['led_pin'], GPIO.LOW )
+			else :
+				status = 'on'
+				GPIO.output( config['led_pin'], GPIO.HIGH )
 
-	client.disconnect()
-	client.loop_stop()
+			while ( False == GPIO.input( config['button_pin'] ) ) :
+				pass
 
+			client.publish( config['status_topic'], status )
 
-temp = read_temperature()
-humid = read_humidity()
-
-while ( True ) :
-	do_update = False
-
-	last_humid = int( humid )
-	humid = ( humid_alpha * read_humidity() ) + ( ( 1 - humid_alpha ) * humid );
-	last_temp = int( temp )
-	temp = ( temp_alpha * read_temperature() ) + ( ( 1 - temp_alpha ) * temp );
-
-	if ( last_humid != int( humid ) or last_temp != int( temp ) ) :
-		do_update = True
-
-	if ( False == GPIO.input( config['button_pin'] ) ) :
-		do_update = True
-
-		if ( 'on' == status ) :
-			status = 'off'
-			GPIO.output( config['led_pin'], GPIO.LOW )
-		else :
-			status = 'on'
-			GPIO.output( config['led_pin'], GPIO.HIGH )
-
-		while ( False == GPIO.input( config['button_pin'] ) ) :
-			pass
-
-	if ( do_update ) :
-		update_home_assistant_sensors( int( humid ), int( temp ), status )
-
-	if ( time.time() > ( last_pull + config['pull_frequency'] ) ) :
-		do_update = True
-
-		desired_temp = int( round( float( get_home_assistant_value( config['ha_desired_entity_id'], desired_temp ) ) ) )
-		out_temp     = int( round( float( get_home_assistant_value( config['ha_out_temp_entity_id'], out_temp ) ) ) )
-		out_humid    = int( round( float( get_home_assistant_value( config['ha_out_humid_entity_id'], out_humid ) ) ) )
-
-		last_pull = time.time()
-
-	if ( do_update ) :
 		rgb = rgb_temp( config['low_temp_f'], config['high_temp_f'], temp )
 		if ( rgb[0] != prev_rgb[0] or rgb[1] != prev_rgb[1] or rgb[2] != prev_rgb[2] ) :
 			lcd.set_color( rgb[0] / 255.0, rgb[1] / 255.0, rgb[2] / 255.0 )
 			prev_rgb = rgb
 
 		lcd.set_cursor( 0, 0 )
-		lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ) + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, int( temp ), int( humid ) ) + 'Desired: {0:3}\x01'.format( desired_temp ).ljust( config['lcd_columns'] ) )
+		lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ) + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, int( temp ), int( humid ) ) + 'Target: {0:3}\x01'.format( target_temp ).ljust( config['lcd_columns'] ) )
 
-	time.sleep( 1 )
+		time.sleep( 2 )
+except KeyboardInterrupt:
+    client.disconnect()
+    client.loop_stop()
