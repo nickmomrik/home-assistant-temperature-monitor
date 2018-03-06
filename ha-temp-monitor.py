@@ -144,7 +144,7 @@ try :
 			prev_rgb = rgb
 
 		lcd.set_cursor( 0, 0 )
-		lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ) + '\nOutside: {0:3}\x01 {1:2}%\n Inside: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, int( temp ), int( humid ) ) + 'Target: {0:3}\x01'.format( target_temp ).ljust( config['lcd_columns'] ) )
+		lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ).upper() + '\nOUTSIDE: {0:3}\x01 {1:2}%\n INSIDE: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, int( temp ), int( humid ) ) + ' TARGET: {0:3}\x01'.format( target_temp ).ljust( config['lcd_columns'] ) )
 
 		time.sleep( 2 )
 except KeyboardInterrupt:
