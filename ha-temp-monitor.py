@@ -99,6 +99,9 @@ def on_message( client, userdata, msg ) :
 	elif ( config['outdoor_humid_topic'] == msg.topic ) :
 		out_humid = value
 
+def button_is_pressed() :
+	return False == GPIO.input( config['button_pin'] )
+
 client = mqtt.Client()
 client.connected_flag = False
 client.on_connect = on_connect
@@ -114,18 +117,20 @@ try :
 	temp = read_temperature()
 	client.publish( config['temp_topic'], int( temp ) )
 
+	loops = 0;
+	max_loops = 300;
 	while ( True ) :
 		last_humid = int( humid )
 		humid = ( humid_alpha * read_humidity() ) + ( ( 1 - humid_alpha ) * humid );
-		if ( last_humid != int( humid ) ) :
+		if ( last_humid != int( humid ) or loops == max_loops ) :
 			client.publish( config['humid_topic'], int( humid ) )
 
 		last_temp = int( temp )
 		temp = ( temp_alpha * read_temperature() ) + ( ( 1 - temp_alpha ) * temp );
-		if ( last_temp != int( temp ) ) :
+		if ( last_temp != int( temp ) or loops == max_loops ) :
 			client.publish( config['temp_topic'], int( temp ) )
 
-		if ( False == GPIO.input( config['button_pin'] ) ) :
+		if ( button_is_pressed() or loops == max_loops ) :
 			if ( 'on' == status ) :
 				status = 'off'
 				GPIO.output( config['led_pin'], GPIO.LOW )
@@ -133,8 +138,8 @@ try :
 				status = 'on'
 				GPIO.output( config['led_pin'], GPIO.HIGH )
 
-			while ( False == GPIO.input( config['button_pin'] ) ) :
-				pass
+			while ( button_is_pressed ) :
+				time.sleep( 1 )
 
 			client.publish( config['status_topic'], status )
 
@@ -145,6 +150,8 @@ try :
 
 		lcd.set_cursor( 0, 0 )
 		lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ).upper() + '\nOUTSIDE: {0:3}\x01 {1:2}%\n INSIDE: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, int( temp ), int( humid ) ) + ' TARGET: {0:3}\x01'.format( target_temp ).ljust( config['lcd_columns'] ) )
+
+		loops = 0 if ( max_loops == loops ) else loops + 1
 
 		time.sleep( 2 )
 except KeyboardInterrupt:
