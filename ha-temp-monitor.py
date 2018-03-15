@@ -30,7 +30,7 @@ lcd = LCD.Adafruit_RGBCharLCD( config['lcd_rs_pin'], config['lcd_en_pin'],
 # Some defaults
 prev_rgb     = ( 1, 1, 1 )
 status       = 'off'
-target_temp = 0
+target_temp  = 0
 temp         = 0
 out_temp     = 0
 humid        = 0
@@ -127,21 +127,22 @@ try :
 
 		last_temp = int( temp )
 		temp = ( temp_alpha * read_temperature() ) + ( ( 1 - temp_alpha ) * temp );
-		if ( last_temp != int( temp ) or loops == max_loops ) :
+		if ( last_temp != int( temp ) or loops == int( 0.3 * max_loops ) ) :
 			client.publish( config['temp_topic'], int( temp ) )
 
-		if ( button_is_pressed() or loops == max_loops ) :
-			if ( 'on' == status ) :
-				status = 'off'
-				GPIO.output( config['led_pin'], GPIO.LOW )
-			else :
-				status = 'on'
-				GPIO.output( config['led_pin'], GPIO.HIGH )
+		if ( button_is_pressed() or loops == int( 0.6 * max_loops ) ) :
+			if ( button_is_pressed() ) :
+				if ( 'on' == status ) :
+					status = 'off'
+					GPIO.output( config['led_pin'], GPIO.LOW )
+				else :
+					status = 'on'
+					GPIO.output( config['led_pin'], GPIO.HIGH )
 
-			while ( button_is_pressed ) :
-				time.sleep( 1 )
+				while ( button_is_pressed ) :
+					time.sleep( 1 )
 
-			client.publish( config['status_topic'], status )
+			client.publish( config['status_topic'], status, 2 )
 
 		rgb = rgb_temp( config['low_temp_f'], config['high_temp_f'], temp )
 		if ( rgb[0] != prev_rgb[0] or rgb[1] != prev_rgb[1] or rgb[2] != prev_rgb[2] ) :
