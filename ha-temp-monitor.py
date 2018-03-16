@@ -36,12 +36,10 @@ out_temp     = 0
 humid        = 0
 out_humid    = 0
 bus_delay    = 0.025
-last_update  = 0
 
-# Low Pass Filters
+# Low Pass Filter
 # https://www.norwegiancreations.com/2015/10/tutorial-potentiometers-with-arduino-and-filtering/
-temp_alpha = 0.1
-humid_alpha = 0.1
+filter_alpha = 0.1
 
 # Create degree character
 lcd.create_char( 1, [28,20,28,0,0,0,0,0] )
@@ -112,35 +110,33 @@ while ( not client.connected_flag ) :
 	time.sleep( 1 )
 
 try :
+	# Initialize before starting filters
 	humid = read_humidity()
-	client.publish( config['humid_topic'], int( humid ) )
 	temp = read_temperature()
-	client.publish( config['temp_topic'], int( temp ) )
+	time.sleep( 2 )
 
-	loops = 0;
-	max_loops = 300;
+	update_freq = 60
+	loops = update_freq
 	while ( True ) :
-		last_humid = int( humid )
-		humid = ( humid_alpha * read_humidity() ) + ( ( 1 - humid_alpha ) * humid );
-		if ( last_humid != int( humid ) or loops == max_loops ) :
+		if ( loops == update_freq ) :
+			humid = ( filter_alpha * read_humidity() ) + ( ( 1 - filter_alpha ) * humid );
+			temp = ( filter_alpha * read_temperature() ) + ( ( 1 - filter_alpha ) * temp );
 			client.publish( config['humid_topic'], int( humid ) )
-
-		last_temp = int( temp )
-		temp = ( temp_alpha * read_temperature() ) + ( ( 1 - temp_alpha ) * temp );
-		if ( last_temp != int( temp ) or loops == int( 0.3 * max_loops ) ) :
 			client.publish( config['temp_topic'], int( temp ) )
+			loops = 0
+		else :
+			loops += 1
 
-		if ( button_is_pressed() or loops == int( 0.6 * max_loops ) ) :
-			if ( button_is_pressed() ) :
-				if ( 'on' == status ) :
-					status = 'off'
-					GPIO.output( config['led_pin'], GPIO.LOW )
-				else :
-					status = 'on'
-					GPIO.output( config['led_pin'], GPIO.HIGH )
+		if ( button_is_pressed() ) :
+			while ( button_is_pressed ) :
+				time.sleep( 0.1 )
 
-				while ( button_is_pressed ) :
-					time.sleep( 1 )
+			if ( 'on' == status ) :
+				status = 'off'
+				GPIO.output( config['led_pin'], GPIO.LOW )
+			else :
+				status = 'on'
+				GPIO.output( config['led_pin'], GPIO.HIGH )
 
 			client.publish( config['status_topic'], status, 2 )
 
@@ -152,9 +148,7 @@ try :
 		lcd.set_cursor( 0, 0 )
 		lcd.message( datetime.now().strftime( '%H:%M --- %a %b %d' ).upper() + '\nOUTSIDE: {0:3}\x01 {1:2}%\n INSIDE: {2:3}\x01 {3:2}%\n'.format( out_temp, out_humid, int( temp ), int( humid ) ) + ' TARGET: {0:3}\x01'.format( target_temp ).ljust( config['lcd_columns'] ) )
 
-		loops = 0 if ( max_loops == loops ) else loops + 1
-
-		time.sleep( 2 )
+		time.sleep( 0.5 )
 except KeyboardInterrupt:
     client.disconnect()
     client.loop_stop()
