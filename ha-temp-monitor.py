@@ -36,6 +36,7 @@ out_temp     = 0
 humid        = 0
 out_humid    = 0
 bus_delay    = 0.025
+last_update  = 0
 
 # Low Pass Filter
 # https://www.norwegiancreations.com/2015/10/tutorial-potentiometers-with-arduino-and-filtering/
@@ -115,28 +116,26 @@ try :
 	temp = read_temperature()
 	time.sleep( 2 )
 
-	update_freq = 60
-	loops = update_freq
 	while ( True ) :
-		if ( loops == update_freq ) :
+		if ( ( time.time() - last_update ) > config['update_freq'] ) :
+			print("updating")
 			humid = ( filter_alpha * read_humidity() ) + ( ( 1 - filter_alpha ) * humid );
 			temp = ( filter_alpha * read_temperature() ) + ( ( 1 - filter_alpha ) * temp );
 			client.publish( config['humid_topic'], int( humid ) )
 			client.publish( config['temp_topic'], int( temp ) )
-			loops = 0
-		else :
-			loops += 1
+			last_update = time.time()
 
 		if ( button_is_pressed() ) :
-			while ( button_is_pressed ) :
-				time.sleep( 0.1 )
-
 			if ( 'on' == status ) :
 				status = 'off'
 				GPIO.output( config['led_pin'], GPIO.LOW )
 			else :
 				status = 'on'
 				GPIO.output( config['led_pin'], GPIO.HIGH )
+
+			# Wait for release
+			while ( button_is_pressed() ) :
+				time.sleep( 0.1 )
 
 			client.publish( config['status_topic'], status, 2 )
 

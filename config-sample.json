@@ -14,6 +14,7 @@
 	"lcd_rows": 4,
 	"high_temp_f": 80,
 	"low_temp_f": 42,
+	"update_freq": 30,
 	"ip": "192.168.1.5",
 	"humid_topic": "garage/humidity",
 	"temp_topic": "garage/temperature",
