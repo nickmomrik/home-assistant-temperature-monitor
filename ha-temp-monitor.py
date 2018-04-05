@@ -118,7 +118,6 @@ try :
 
 	while ( True ) :
 		if ( ( time.time() - last_update ) > config['update_freq'] ) :
-			print("updating")
 			humid = ( filter_alpha * read_humidity() ) + ( ( 1 - filter_alpha ) * humid );
 			temp = ( filter_alpha * read_temperature() ) + ( ( 1 - filter_alpha ) * temp );
 			client.publish( config['humid_topic'], int( humid ) )
